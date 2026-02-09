@@ -12,6 +12,7 @@ suppressPackageStartupMessages({
   library(tidyverse)
   library(patchwork)
   library(httpuv)
+  library(ggplot2)
 })
 
 #---------------------------03 Define user functions -------------------------------
@@ -88,8 +89,8 @@ suppressPackageStartupMessages(library(googlesheets4))
 # Helper you can call from any script after sourcing 00-setup.R:
 gsheets_auth <- function(
     mode = c("auto", "public", "user", "service"),
-    email = Sys.getenv("GS_EMAIL", ""),                     # for user OAuth
-    sa_json = Sys.getenv("GS_SERVICE_ACCOUNT_JSON", ""),    # for service account
+    email = Sys.getenv("GS_EMAIL", "a.m.koopman.1@student.rug.nl"),                     # for user OAuth
+    sa_json = Sys.getenv("GS_SERVICE_ACCOUNT_JSON", ""),                                 # for service account
     cache = Sys.getenv("GARGLE_OAUTH_CACHE", "~/.R/gargle"),
     verbose = TRUE
 ) {
@@ -126,4 +127,3 @@ gsheets_auth <- function(
   }
   invisible(TRUE)
 }
-
