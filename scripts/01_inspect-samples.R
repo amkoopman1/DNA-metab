@@ -262,3 +262,15 @@ a_tb_data <- an_data %>%
 ggplot(a_tb_data, aes(hectad, count, shape = source)) + 
   geom_jitter()
 
+
+# two species 42 days bins 
+rk_35_data <- an_data %>%
+  mutate(day_of_year = yday(Date),  # Day of year (1-365)
+         timebin = ceiling((day_of_year +0) / 42), # the + changes the window of time
+         Year = substr(Date, 1,4)) %>%
+  filter(Species != "Bosrietzanger", Year != '2023')%>%
+  group_by(timebin, source, Year, Species) %>%
+  summarise(count = n())
+
+ggplot(rk_35_data, aes(timebin, count, shape = source)) + 
+  geom_jitter()
