@@ -144,21 +144,23 @@ ggplot(nl_bosr_count, aes(Month, count, color = Year)) + geom_point()+
 
 an_data1 <- database_2[["Sheet1"]]
 
+# give (yes/no) marker to column 'processed' to indicate whether DNA already sequenced
 an_data <- bind_rows(
     cap_data %>% select(Date, Species, Feces) %>% mutate(source = "captures"),
     nling_data %>% select(Date, Species, Feces) %>% mutate(source = "nest"),
     nlev_data %>% select(Date, Species, Feces) %>% mutate(source = "nest")
-  )
+  ) %>%
+  mutate(Feces = str_sub(Feces, -6, -1))%>%
+  mutate(processed = ifelse(Feces %in% an_data1$sample_id, "yes", "no"))
+
+View(an_data)
 
 count_an_data <-  an_data %>%
-  mutate(Feces = str_sub(Feces, -6, -1))%>%
-  mutate(processed = ifelse(Feces %in% an_data1$sample_id, "yes", "no"),
-         Month = substr(Date, 6, 7), Year = substr(Date, 1,4)) %>%
-  select(-c(Date)) %>%
+  mutate(Month = substr(Date, 6, 7), Year = substr(Date, 1,4)) %>%
   group_by(Species, Month, Year, source, processed) %>%
   summarise(count = n()) 
 
-#View(count_an_data)
+View(count_an_data)
 
 yes_an_data <- count_an_data %>%
   filter(processed == 'yes')
