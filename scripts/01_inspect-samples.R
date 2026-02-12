@@ -212,10 +212,10 @@ ggplot(rk_57_an_data, aes(Month, count, color = Species, shape = source)) + geom
 bosr_an_data <- an_data %>%
   mutate(Month = substr(Date, 6, 7), Year = substr(Date, 1,4)) %>%
   filter(Species %in% c('Bosrietzanger')) %>%
-  group_by(Month, Year, source) %>%
+  group_by(Month, source, Year) %>%
   summarise(count = n())
 
-ggplot(bosr_an_data, aes(Month, count, color = Year, shape = source)) + geom_jitter()
+ggplot(bosr_an_data, aes(Month, count,shape = source, color = Year)) + geom_point()
 
 
 
