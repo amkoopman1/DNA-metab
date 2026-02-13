@@ -146,7 +146,7 @@ an_data1 <- database_2[["Sheet1"]]
 
 # give (yes/no) marker to column 'processed' to indicate whether DNA already sequenced
 an_data <- bind_rows(
-    cap_data %>% select(Date, Species, Feces) %>% mutate(source = "captures"),
+    cap_data %>% select(Date, Species, Feces, Age) %>% mutate(source = "captures"),
     nling_data %>% select(Date, Species, Feces) %>% mutate(source = "nest"),
     nlev_data %>% select(Date, Species, Feces) %>% mutate(source = "nest")
   ) %>%
@@ -169,20 +169,21 @@ ggplot(yes_an_data, aes(Month, count, color = source)) + geom_jitter()
 
 
 
-# for Rietzanger captures, check how many samples are already processed.
+# for Rietzanger captures
 # suitable years: '20, '21 and '22, months 4, 5, 6, 7. 15 samples per group. 
 # only for adults. 
 
 yn_rietz <- cap_data %>% 
-  filter(Species == 'Rietzanger' & Age == 'N1') %>%
-  mutate(Feces = str_sub(Feces, -6, -1))%>%
-  mutate(processed = ifelse(Feces %in% an_data$sample_id, "yes", "no"),
-         Month = substr(Date, 6, 7), Year = substr(Date, 1,4)) %>%
+  filter(Species == 'Rietzanger') %>%
+  mutate(Month = substr(Date, 6, 7), Year = substr(Date, 1,4)) %>%
   select(-c(Date)) %>%
-  group_by(Species, Month, Year, processed) %>%
+  group_by(Month, Year, Age) %>%
   summarise(count = n())
 
 #View(yn_rietz)
+
+ggplot(yn_rietz, aes(Month, count, color = Year, shape = Age)) + geom_jitter()+
+  ggtitle("Captures Rietzangers")
 
 
 count_an_data_20_22 <- count_an_data %>%
@@ -192,22 +193,29 @@ ggplot(count_an_data_20_22, aes(Month, count, color = Species, shape = source)) 
 
 
 # look at year 2022 month 6 captures + nest of karekiet + rietzanger
+# compare species*age for month 6 year 2022
 rk_22_an_data <- an_data %>%
 mutate(Month = substr(Date, 6, 7), Year = substr(Date, 1,4)) %>%
-  filter(Species %in% c('Kleine karekiet', 'Rietzanger'), Year == '2022') %>%
+  filter(Species %in% c('Kleine karekiet', 'Rietzanger'), 
+         Year == '2022', Age %in% c('N1', NA)) %>%
   group_by(Species, Month, Year, source) %>%
   summarise(count = n())
 
-ggplot(rk_22_an_data, aes(Month, count, color = Species, shape = source)) + geom_jitter()
+ggplot(rk_22_an_data, aes(Month, count, color = Species, shape = source)) + 
+  geom_jitter() + ggtitle("Rietzanger + karekiet 2022 adult N1 and nestlings ")
 
-# rietzanger  + karekiet for months 5-7
+# rietzanger  + karekiet N1 adults
+# compare species*year for the 8th timebin of 21 days for years '20-'22
 rk_57_an_data <- an_data %>%
-  mutate(Month = substr(Date, 6, 7), Year = substr(Date, 1,4)) %>%
-  filter(Species %in% c('Kleine karekiet', 'Rietzanger'), Month %in% c('05', '06', '07'), Year != '2023') %>%
-  group_by(Species, Month, Year, source) %>%
+  mutate(day_of_year = yday(Date),  # Day of year (1-365)
+         days21 = ceiling((day_of_year +0) / 21), # the + changes the window of time
+         Year = substr(Date, 1,4)) %>%
+  filter(Species %in% c('Kleine karekiet', 'Rietzanger'), Age == 'N1') %>%
+  group_by(Species, days21, Year, source) %>%
   summarise(count = n())
 
-ggplot(rk_57_an_data, aes(Month, count, color = Species, shape = source)) + geom_jitter()
+ggplot(rk_57_an_data, aes(days21, count, color = Year, shape = Species)) + 
+  geom_point() + ggtitle("Rietzanger + karekiet N1 adults")
 
 # bosrietzanger 
 
@@ -239,21 +247,23 @@ ggplot(rk_tb_an_data, aes(hectad, count, color = Species, shape = source)) +
 # rietzanger adult + nestling time bin days 
 r_tb_data <- an_data %>% 
   mutate(day_of_year = yday(Date),  # Day of year (1-365)
-         hectad = ceiling((day_of_year +0) / 21), # the + changes the window of time
+         days21 = ceiling((day_of_year +0) / 21), # the + changes the window of time
          Year = substr(Date, 1,4)) %>%
   filter(Species %in% c('Rietzanger')) %>%
-  group_by(Species, hectad, source, Year) %>%
+  group_by(Species, days21, source, Year) %>%
   summarise(count = n())
 
 
 # if 2023 is excluded, for every 21 days, bins 6-10 (= 105 days) each have at least 10 
-# samples per adult and nestling per year. 
-ggplot(r_tb_data, aes(hectad, count, color = Year, shape = source)) + 
-  geom_jitter()
+# samples per adult per year. for nestlings, bin 8-10. 
+# compare 21 days * year * age
+ggplot(r_tb_data, aes(days21, count, color = Year, shape = source)) + 
+  geom_jitter() + ggtitle("Rietzanger per 21 days, adults + nestlings")
 
 
 
-# if species and years are collapsed, can capture + nest per week for about 100 days, but likely severe unevenness of data 
+# if species and years are collapsed, can capture + nest per week for 
+# about 100 days, but likely severe unevenness of data 
 a_tb_data <- an_data %>%
   mutate(day_of_year = yday(Date),  # Day of year (1-365)
          hectad = ceiling((day_of_year +0) / 7), # the + changes the window of time
@@ -265,14 +275,15 @@ ggplot(a_tb_data, aes(hectad, count, shape = source)) +
   geom_jitter()
 
 
-# two species 42 days bins 
+# two species 42 days bins
+# compare species * 6 weeks * year
 rk_35_data <- an_data %>%
   mutate(day_of_year = yday(Date),  # Day of year (1-365)
-         timebin = ceiling((day_of_year +0) / 42), # the + changes the window of time
+         timebin = ceiling((day_of_year +14) / 42), # the + changes the window of time
          Year = substr(Date, 1,4)) %>%
-  filter(Species != "Bosrietzanger", Year != '2023')%>%
+  filter(Species != "Bosrietzanger", Year != '2023', Age == 'N1')%>%
   group_by(timebin, source, Year, Species) %>%
   summarise(count = n())
 
-ggplot(rk_35_data, aes(timebin, count, shape = source)) + 
-  geom_jitter()
+ggplot(rk_35_data, aes(timebin, count, shape = Species, color = Year)) + 
+  geom_point()+ggtitle("Karekiet + rietzanger, per 6 weeks")
