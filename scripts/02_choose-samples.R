@@ -111,28 +111,28 @@ samples_species_season_year <- species_season_year %>%
 
 
 
+# write to google sheets with maximum overlap
 
 
 
 # take samples and write to google sheets
-
-
 # List your dataframes
-dataframes <- list(samples_species_age, samples_season_year_age, samples_species_year, samples_species_season_year)
+dataframes <- list(samples_species_season_year, samples_season_year_age,samples_species_age, samples_species_year)
 
 # Define grouping columns for each dataframe
 grouping_vars <- list(
-  c("Species", "Age"),           # groups for samples_species_age
+  c("Species", "days42", "Year"), # groups for species_season_year
   c("days28", "Year", "Age"),    # groups for season_year_age
-  c("Species", "Year"),          # groups for species_year
-  c("Species", "days42", "Year") # groups for species_season_year
+  c("Species", "Age"),           # groups for samples_species_age
+  c("Species", "Year")          # groups for species_year
+  
 )
 
 # Track all previously sampled rows
 previously_sampled <- data.frame(Feces = character())
 
 # Set different seeds
-seeds <- c(42, 100, 200, 300)
+seeds <- c(41, 101, 201, 301)
 
 # Sample from each dataframe
 for(i in 1:4) {
@@ -141,14 +141,28 @@ for(i in 1:4) {
   # Get current dataframe
   current_df <- dataframes[[i]]
   
-  # Split into overlap and new rows
-  overlap_rows <- current_df %>%
-    semi_join(previously_sampled, by = "Feces")  # rows that ARE in previous samples
+  # Split into 4 priority tiers
+  # Tier 1: Overlap + no 'nee' (BEST)
+  tier1 <- current_df %>%
+    semi_join(previously_sampled, by = "Feces") %>%
+    filter(Sequenced != "nee")
   
-  new_rows <- current_df %>%
-    anti_join(previously_sampled, by = "Feces")  # rows that are NOT in previous samples
+  # Tier 2: New + no 'nee' (SECOND - avoid nee more important than reuse)
+  tier2 <- current_df %>%
+    anti_join(previously_sampled, by = "Feces") %>%
+    filter(Sequenced != "nee")
   
-  # Sample prioritizing overlap
+  # Tier 3: Overlap + has 'nee' (THIRD - at least reused)
+  tier3 <- current_df %>%
+    semi_join(previously_sampled, by = "Feces") %>%
+    filter(Sequenced == "nee")
+  
+  # Tier 4: New + has 'nee' (WORST)
+  tier4 <- current_df %>%
+    anti_join(previously_sampled, by = "Feces") %>%
+    filter(Sequenced == "nee")
+  
+  # Sample from each group
   new_sample <- data.frame()
   
   # Get unique groups
@@ -156,40 +170,66 @@ for(i in 1:4) {
     distinct(across(all_of(grouping_vars[[i]])))
   
   for(j in 1:nrow(groups_df)) {
-    # Filter for this specific group
+    # Filter each tier for this specific group
     group_filter_list <- as.list(groups_df[j, ])
     
-    overlap_in_group <- overlap_rows
-    new_in_group <- new_rows
+    tier1_group <- tier1
+    tier2_group <- tier2
+    tier3_group <- tier3
+    tier4_group <- tier4
     
     for(col in names(group_filter_list)) {
-      overlap_in_group <- overlap_in_group %>%
-        filter(.data[[col]] == group_filter_list[[col]])
-      new_in_group <- new_in_group %>%
-        filter(.data[[col]] == group_filter_list[[col]])
+      tier1_group <- tier1_group %>% filter(.data[[col]] == group_filter_list[[col]])
+      tier2_group <- tier2_group %>% filter(.data[[col]] == group_filter_list[[col]])
+      tier3_group <- tier3_group %>% filter(.data[[col]] == group_filter_list[[col]])
+      tier4_group <- tier4_group %>% filter(.data[[col]] == group_filter_list[[col]])
     }
     
-    # Sample up to 10: first from overlap, then from new
-    n_overlap <- min(10, nrow(overlap_in_group))
-    n_new <- max(0, 10 - n_overlap)
+    # Sample up to 10, filling from tiers in priority order
+    remaining <- 10
+    group_sample <- data.frame()
     
-    sample_from_overlap <- if(n_overlap > 0) {
-      overlap_in_group %>% slice_sample(n = n_overlap)
-    } else {
-      data.frame()
+    # Take from tier 1 (overlap + no nee)
+    n_tier1 <- min(remaining, nrow(tier1_group))
+    if(n_tier1 > 0) {
+      group_sample <- bind_rows(group_sample, tier1_group %>% slice_sample(n = n_tier1))
+      remaining <- remaining - n_tier1
     }
     
-    sample_from_new <- if(n_new > 0 && nrow(new_in_group) > 0) {
-      new_in_group %>% slice_sample(n = min(n_new, nrow(new_in_group)))
-    } else {
-      data.frame()
+    # Take from tier 2 (new + no nee)
+    if(remaining > 0) {
+      n_tier2 <- min(remaining, nrow(tier2_group))
+      if(n_tier2 > 0) {
+        group_sample <- bind_rows(group_sample, tier2_group %>% slice_sample(n = n_tier2))
+        remaining <- remaining - n_tier2
+      }
     }
     
-    new_sample <- bind_rows(new_sample, sample_from_overlap, sample_from_new)
+    # Take from tier 3 (overlap + nee)
+    if(remaining > 0) {
+      n_tier3 <- min(remaining, nrow(tier3_group))
+      if(n_tier3 > 0) {
+        group_sample <- bind_rows(group_sample, tier3_group %>% slice_sample(n = n_tier3))
+        remaining <- remaining - n_tier3
+      }
+    }
+    
+    # Take from tier 4 (new + nee)
+    if(remaining > 0) {
+      n_tier4 <- min(remaining, nrow(tier4_group))
+      if(n_tier4 > 0) {
+        group_sample <- bind_rows(group_sample, tier4_group %>% slice_sample(n = n_tier4))
+        remaining <- remaining - n_tier4
+      }
+    }
+    
+    new_sample <- bind_rows(new_sample, group_sample)
   }
   
-  # Count overlap before adding to tracker
-  n_overlap_total <- sum(new_sample$Feces %in% previously_sampled$Feces)
+  # Count overlap and 'nee' stats
+  n_overlap <- sum(new_sample$Feces %in% previously_sampled$Feces)
+  n_nee <- sum(new_sample$Sequenced == "nee")
+  n_new_samples <- nrow(new_sample) - n_overlap
   
   # Add to tracker
   previously_sampled <- bind_rows(previously_sampled, new_sample)
@@ -200,9 +240,7 @@ for(i in 1:4) {
               sheet = paste0("samples_", i))
   
   print(paste("Sampled", nrow(new_sample), "rows from samples_", i, 
-              "- Overlap with previous:", n_overlap_total))
+              "- Reused:", n_overlap,
+              "- New samples needed:", n_new_samples,
+              "- Contains 'nee':", n_nee))
 }
-
-
-# leads to 223 samples if maximize overlap and use 10 samples per group
-
