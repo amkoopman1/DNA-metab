@@ -272,7 +272,7 @@ for (i in 1:100) {
            !is.na(order)) %>%
     select(sample_id, host_age_group, species, family, order, rra, days42, days21, Year, day_of_year) %>%
     group_by(days42, host_age_group, Year) %>%
-    slice_sample(n = 14) %>%
+    slice_sample(n = 12) %>%
     ungroup()
   
   f_data_div_sp <- f_data_inv1 %>%
@@ -299,9 +299,12 @@ for (i in 1:100) {
 
 all_results <- bind_rows(results_list)
 
-
+# compare whether runs are different
 kruskal.test(shannon ~ run, data = all_results) 
 
+
+# mu, sd and variance of groups after 100 runs on random pulls, with now n=12
+# ideally, cv < 0.1. otherwise, < 0.2 still acceptable.
 all_results %>%
   group_by(host_age_group, days42, Year) %>%
   summarise(
