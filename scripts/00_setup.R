@@ -13,6 +13,7 @@ suppressPackageStartupMessages({
   library(patchwork)
   library(httpuv)
   library(ggplot2)
+  library(vegan)
 })
 
 #---------------------------03 Define user functions -------------------------------
