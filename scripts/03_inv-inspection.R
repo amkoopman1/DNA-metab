@@ -262,13 +262,14 @@ kruskal.test(f_shannon_sp ~ Year, data = f_result_sp)
 
 
 ## for loop to see how stable results are
+# based on this, choose sample size per group
 
 results_list <- vector("list", 100)  # pre-allocate list of length 100
 
 for (i in 1:100) {
   
   f_data_inv1 <- data_inv1 %>%
-    filter(days42 %in% c('3', '4', '5'),
+    filter(days42 %in% c('3', '4', '5'), # have plenty samples
            !is.na(order)) %>%
     select(sample_id, host_age_group, species, family, order, rra, days42, days21, Year, day_of_year) %>%
     group_by(days42, host_age_group, Year) %>%
