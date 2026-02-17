@@ -39,44 +39,13 @@ data_order2species_rra <- data_inv1 %>% group_by(order, species) %>% summarise(a
 # highest rra family per order
 data_order2family_rra <- data_inv1 %>% group_by(order, family) %>% summarise(avg_rra = mean(rra, na.rm = TRUE)) %>% slice_max(avg_rra)
 
-View(data_order2species)
-View(data_order2species_rra)
-View(data_order2family_rra)
+#View(data_order2species)
+#View(data_order2species_rra)
+#View(data_order2family_rra)
 
 
 
 # compare nestling and adult
-
-n1_order2species_rra <- data_order2species_rra <- data_inv1 %>% filter(host_age_group == 'adult') %>%
-  group_by(order, species) %>% 
-  summarise(avg_rra = mean(rra, na.rm = TRUE)) %>% 
-  slice_max(avg_rra)
-
-View(n1_order2species_rra)
-
-kj_order2species_rra <- data_order2species_rra <- data_inv1 %>% filter(host_age_group == 'nestling') %>%
-  group_by(order, species) %>% 
-  summarise(avg_rra = mean(rra, na.rm = TRUE)) %>% 
-  slice_max(avg_rra)
-
-View(kj_order2species_rra)
-
-
-## look at seasons
-names(data_inv1)
-count_inv1 <- data_inv1 %>%
-  group_by(host_age_group, days21, Year) %>%
-  summarise(count = n()) 
-
-View(count_inv1)
-
-ggplot(count_inv1, aes(days21, count, color = Year, shape = host_age_group)) + 
-  geom_point() + ggtitle("Rietzanger per 21 days")
-
-# compare for days21 7
-
-data_inv2022 <- data_inv1 %>%
-  filter(Year == '2022')
 
 n1_order2species_rra <- data_order2species_rra <- data_inv1 %>% filter(host_age_group == 'adult') %>%
   group_by(order, species) %>% 
@@ -93,6 +62,38 @@ kj_order2species_rra <- data_order2species_rra <- data_inv1 %>% filter(host_age_
 #View(kj_order2species_rra)
 
 
+## look at seasons
+names(data_inv1)
+count_inv1 <- data_inv1 %>%
+  group_by(host_age_group, days21, Year) %>%
+  summarise(count = n()) 
+
+#View(count_inv1)
+
+ggplot(count_inv1, aes(days21, count, color = Year, shape = host_age_group)) + 
+  geom_point() + ggtitle("Rietzanger per 21 days")
+
+# compare for days21 7
+
+data_inv2022 <- data_inv1 %>%
+  filter(Year == '2022')
+
+n1_order2species_rra <- data_order2species_rra <- data_inv1 %>% filter(host_age_group == 'adult') %>%
+  group_by(order, species) %>% 
+  summarise(avg_rra = mean(rra, na.rm = TRUE)) %>% 
+  slice_max(avg_rra)
+
+##View(n1_order2species_rra)
+
+kj_order2species_rra <- data_order2species_rra <- data_inv1 %>% filter(host_age_group == 'nestling') %>%
+  group_by(order, species) %>% 
+  summarise(avg_rra = mean(rra, na.rm = TRUE)) %>% 
+  slice_max(avg_rra)
+
+##View(kj_order2species_rra)
+
+
+# graph important diet sources for 2022, compare for age, years and season
 data_inv1 %>%
   filter(Year == '2022', 
          order %in% c('Trombidiformes', 'Ephemeroptera', 'Trichoptera', 'Hemiptera', 'Lepidoptera', 'Coleoptera', 'Diptera'))%>%
@@ -106,31 +107,65 @@ data_inv1 %>%
 
 
 
-## calculate shannon biodiv
+## calculate shannon biodiv for species level
 
-library(vegan)
-data_div <- data_inv1 %>%
+data_div_sp <- data_inv1 %>%
   filter(!is.na(species)) %>%
   select(c(rra, species, host_age_group, days21, Year, sample_id)) %>%
-  group_by(species, host_age_group, days21, Year) %>%
-  filter(n_distinct(sample_id) >= 2) %>%
+  group_by(species, host_age_group, days21) %>%
+  filter(n_distinct(sample_id) >= 1) %>%
   summarise(rra = mean(rra, na.rm = TRUE)) %>%
   pivot_wider(names_from = species, values_from = rra, values_fill = 0) %>%
   ungroup()
 
-m_data_div <- data_div %>%
-  select(-host_age_group, -days21, -Year) 
+m_data_div_sp <- data_div_sp %>%
+  select(-host_age_group, -days21) 
 
 
-shannon_result <- diversity(m_data_div, index = "shannon")
+shannon_sp <- diversity(m_data_div_sp, index = "shannon")
 
-result <- data_div %>%
-  select(host_age_group, days21, Year) %>%
-  mutate(shannon_result = shannon_result)
+result_sp <- data_div_sp %>%
+  select(host_age_group, days21) %>%
+  mutate(shannon_sp = shannon_sp)
 
 
-result %>%
-  ggplot(aes(x = days21, y = shannon_result, linetype = host_age_group, color = Year)) +
+
+# the biodiveristy index throughout the season, years collapsed and not really filtered for things; very uneven, drop most likely due to sample size bias
+result_sp %>%
+  ggplot(aes(x = days21, y = shannon_result, linetype = host_age_group)) +
+  geom_line() +
+  geom_point() +
+  labs(x = "Days21", y = "shannon biodiv", linetype = "Age Class") +
+  theme_bw()
+
+
+
+## calculate shannon biodiv for family level
+
+data_div_fa <- data_inv1 %>%
+  filter(!is.na(family)) %>%
+  select(c(rra, family, host_age_group, days21, Year, sample_id)) %>%
+  group_by(family, host_age_group, days21) %>%
+  filter(n_distinct(sample_id) >= 1) %>%
+  summarise(rra = mean(rra, na.rm = TRUE)) %>%
+  pivot_wider(names_from = family, values_from = rra, values_fill = 0) %>%
+  ungroup()
+
+m_data_div_fa <- data_div_fa %>%
+  select(-host_age_group, -days21) 
+
+
+shannon_fa <- diversity(m_data_div_fa, index = "shannon")
+
+result_fa <- data_div_fa %>%
+  select(host_age_group, days21) %>%
+  mutate(shannon_fa = shannon_fa)
+
+
+
+# the biodiveristy index throughout the season, years collapsed and not really filtered for things; very uneven, drop most likely due to sample size bias
+result_fa %>%
+  ggplot(aes(x = days21, y = shannon_result, linetype = host_age_group)) +
   geom_line() +
   geom_point() +
   labs(x = "Days21", y = "shannon biodiv", linetype = "Age Class") +
