@@ -1,7 +1,5 @@
 ## investigate what invertebrates already came out of the previous analysis
 
-gsheets_auth()
-
 
 # link to sedgewarbler_bil20260213 
 link_inv1 <- "https://docs.google.com/spreadsheets/d/13ImnfdXIXchNJ7vbupZ8Oe8CyUrj5Cpr45j2NpVSlXk/edit"

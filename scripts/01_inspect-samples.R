@@ -1,6 +1,5 @@
 ## inspect distribution of samples
 
-gsheets_auth()
 
 # metadata samples Wender
 database_link <- "https://docs.google.com/spreadsheets/d/1ocuMq1ENjgwsVZ4uvhgyqwzb7D1d6v8HvuZTSrQ3kY0/edit"

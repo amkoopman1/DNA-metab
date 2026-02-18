@@ -2,7 +2,6 @@
 
 # load sample data
 
-gsheets_auth()
 
 
 # samples Wender

@@ -128,3 +128,5 @@ gsheets_auth <- function(
   }
   invisible(TRUE)
 }
+
+gsheets_auth()
