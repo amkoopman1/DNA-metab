@@ -10,7 +10,7 @@ names(database_inv1)
 
 #
 data_inv1 <- database_inv1[["Sheet1"]] %>%
-  filter(rra >= 0.01, # only take reads with > 1% of resp. sample
+  filter(rra >= 0.0, # only take reads with >= 'fraction' of resp. sample rra
          !is.na(host_age_group),
          !is.na(phylum)) %>% # filter that sample has age
   # give timebin of 21 days and 42 days
@@ -262,16 +262,20 @@ kruskal.test(f_shannon_sp ~ Year, data = f_result_sp)
 ## for loop to see how stable results are
 # based on this, choose sample size per group
 
-results_list <- vector("list", 100)  # pre-allocate list of length 100
+results_list <- vector("list", 10)  # pre-allocate list of length 100
 
-for (i in 1:100) {
+for (i in 1:20) {
   
   f_data_inv1 <- data_inv1 %>%
-    filter(days42 %in% c('3', '4', '5'), # have plenty samples
-           !is.na(order)) %>%
+    filter(days42 %in% c('3', '4', '5'), !is.na(order)) %>%
     select(sample_id, host_age_group, species, family, order, rra, days42, days21, Year, day_of_year) %>%
     group_by(days42, host_age_group, Year) %>%
-    slice_sample(n = 12) %>%  # sample size per group
+    # Sample 10 unique sample_ids per group, then keep all their rows
+    filter(sample_id %in% {
+      unique_ids <- unique(sample_id)
+      sample(unique_ids, size = min(10, # number of samples
+                                    length(unique_ids)))
+    }) %>%
     ungroup()
   
   f_data_div_sp <- f_data_inv1 %>%
@@ -311,4 +315,4 @@ all_results %>%
     cv           = sd(shannon) / mean(shannon) # coefficient of variation
   )
 
-# when choosing only reads which are >5% of the total sample, cv is good. at >1%, cv is too high, due to low-occurence species popping up.
+# when choosing only reads which are >=3% of the total sample, cv is good. at <3%, cv is too high, due to low-occurence species popping up in some occurrences. 

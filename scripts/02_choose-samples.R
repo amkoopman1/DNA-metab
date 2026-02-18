@@ -68,7 +68,7 @@ ggplot(sum_season_year_age, aes(days21, count, color = Year, shape = Age)) +
 
 samples_season_year_age <- season_year_age %>%
   filter(days21 %in% c('6','7', '8', '9', '10'),
-         Year %in% c('2020', '2021') )
+         Year %in% c('2020', '2021', '2022') )
 
 # species * year
 
@@ -189,7 +189,7 @@ for(i in 1:4) {
     }
     
     # Sample up to 14, filling from tiers in priority order
-    remaining <- 14 # number of samples per group
+    remaining <- 12 # number of samples per group
     group_sample <- data.frame()
     
     # Take from tier 1 (overlap + no nee)
@@ -296,12 +296,3 @@ samples_4_sum
 # new samples for PCR
 180-9+176-9+17+8 #363
 
-
-# 17-02-2026
-# chucked out #2022 for the season_year_age and upped to 14 samples per group, after inspection of the previously sequenced data 
-
-# new samples for DNA isolation
-210-10-84+141-56-8+39+12 #244
-
-# new samples for PCR
-210-10+141-8+39-9+12 #375 
