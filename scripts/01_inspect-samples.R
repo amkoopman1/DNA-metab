@@ -6,7 +6,7 @@ database_link <- "https://docs.google.com/spreadsheets/d/1ocuMq1ENjgwsVZ4uvhgyqw
 database <- read_gsdb(database_link)
 names(database)
 
-# analysed samples by Wender
+# list analysed samples by Wender
 database_link2 <- "https://docs.google.com/spreadsheets/d/1KV5IShV1a_4ZouF-I6KCRetfNwX5Zx_rwlCrMGk103E/edit"
 database_2 <- read_gsdb(database_link2)
 names(database_2)

@@ -256,28 +256,33 @@ for(i in 1:4) {
 
 
 
-# check if days are evenly distributed
+# check if days and counts are evenly distributed 
 database_samples <- read_gsdb(samples_url)
 names(database_samples)
 
+
+#samples_species_season_year
 samples_1_sum <-  database_samples[["samples_1"]] %>%
-  group_by(Species, Age, days42) %>%
-  summarise(avg_day = mean(day_of_year))
+  group_by(Species, days42) %>%
+  summarise(avg_day = mean(day_of_year), count= n())
 samples_1_sum
 
+#samples_season_year_age
 samples_2_sum <-  database_samples[["samples_2"]] %>%
   group_by(Age, days21, Year) %>%
-  summarise(avg_day = mean(day_of_year))
+  summarise(avg_day = mean(day_of_year), count= n())
 samples_2_sum
 
+#samples_species_age
 samples_3_sum <- database_samples[["samples_3"]] %>%
   group_by(Age, Species) %>%
-  summarise(avg_day = mean(day_of_year))
+  summarise(avg_day = mean(day_of_year), count= n())
 samples_3_sum
 
+#samples_species_year
 samples_4_sum <- database_samples[["samples_4"]] %>%
   group_by(Year, Species) %>%
-  summarise(avg_day = mean(day_of_year))
+  summarise(avg_day = mean(day_of_year), count= n())
 samples_4_sum
 
 
