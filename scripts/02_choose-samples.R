@@ -11,7 +11,7 @@ database3 <- read_gsdb(database_link3)
 names(database3)
 
 
-# sheet to write samples to 
+# sheet to write sample selection to 
 samples_url <- "https://docs.google.com/spreadsheets/d/1uRL7KNfy2f5I_KIlV1mRosufzjYb88Bu9SbZ1l_s1c8/edit"
 
 

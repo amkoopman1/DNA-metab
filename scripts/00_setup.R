@@ -87,27 +87,38 @@ read_gsdb <- function(database, sheets = NULL, separate = FALSE, verbose = TRUE)
 ## --- Google Sheets auth (googlesheets4) ----------------------------
 suppressPackageStartupMessages(library(googlesheets4))
 
+
+
+
 # Helper you can call from any script after sourcing 00-setup.R:
 gsheets_auth <- function(
     mode = c("auto", "public", "user", "service"),
-    email = Sys.getenv("GS_EMAIL", "a.m.koopman.1@student.rug.nl"),                     # for user OAuth
+    email = Sys.getenv("GS_EMAIL", ""),                     # for user OAuth
     sa_json = Sys.getenv("GS_SERVICE_ACCOUNT_JSON", ""),                                 # for service account
     cache = Sys.getenv("GARGLE_OAUTH_CACHE", "~/.R/gargle"),
     verbose = TRUE
 ) {
   mode <- match.arg(mode)
+
+  # Check if email is provided *** ADDED BLOCK START ***
+  if (is.null(email) || email == "") {
+    stop("Put your email adress in .Rprofile. Please add this line to your .Rprofile:\n",
+         "  Sys.setenv(GS_EMAIL = 'email@adress.nl' )",
+         "Then, restart R (click on Session)")  
+  }
+  # *** ADDED BLOCK END ***  
   
   # Where to cache OAuth tokens (user mode). Create the folder if needed.
   cache <- path.expand(cache)
   if (!dir.exists(cache)) dir.create(cache, recursive = TRUE, showWarnings = FALSE)
   options(gargle_oauth_cache = cache)
-  
+
   if (mode == "public") {
     googlesheets4::gs4_deauth()
     if (verbose) message("gs4: deauthed (public read-only).")
     return(invisible(TRUE))
   }
-  
+
   if (mode == "service" || (mode == "auto" && nzchar(sa_json))) {
     sa_json <- path.expand(sa_json)
     if (!file.exists(sa_json)) stop("GS_SERVICE_ACCOUNT_JSON not found: ", sa_json)
@@ -121,12 +132,13 @@ gsheets_auth <- function(
     stop("No credentials available. Set GS_SERVICE_ACCOUNT_JSON or GS_EMAIL, ",
          "or call gsheets_auth(mode = 'public') for public sheets.")
   }
-  
+
   if (verbose) {
     message("gs4: ", paste(capture.output(googlesheets4::gs4_user()), collapse = " "),
             " | cache: ", normalizePath(cache, winslash = "/"))
   }
   invisible(TRUE)
 }
+
 
 gsheets_auth()
