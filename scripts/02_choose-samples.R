@@ -188,8 +188,8 @@ for(i in 1:4) {
       tier4_group <- tier4_group %>% filter(.data[[col]] == group_filter_list[[col]])
     }
     
-    # Sample up to 12, filling from tiers in priority order
-    remaining <- 14
+    # Sample up to 14, filling from tiers in priority order
+    remaining <- 14 # number of samples per group
     group_sample <- data.frame()
     
     # Take from tier 1 (overlap + no nee)

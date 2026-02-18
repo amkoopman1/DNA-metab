@@ -10,7 +10,7 @@ names(database_inv1)
 
 #
 data_inv1 <- database_inv1[["Sheet1"]] %>%
-  filter(rra >= 0.05, # only take reads with > 5% of resp. sample
+  filter(rra >= 0.01, # only take reads with > 1% of resp. sample
          !is.na(host_age_group),
          !is.na(phylum)) %>% # filter that sample has age
   # give timebin of 21 days and 42 days
@@ -271,7 +271,7 @@ for (i in 1:100) {
            !is.na(order)) %>%
     select(sample_id, host_age_group, species, family, order, rra, days42, days21, Year, day_of_year) %>%
     group_by(days42, host_age_group, Year) %>%
-    slice_sample(n = 12) %>%
+    slice_sample(n = 12) %>%  # sample size per group
     ungroup()
   
   f_data_div_sp <- f_data_inv1 %>%
@@ -301,13 +301,14 @@ all_results <- bind_rows(results_list)
 # compare whether runs are different
 kruskal.test(shannon ~ run, data = all_results) 
 
-
 # mu, sd and variance of groups after 100 runs on random pulls, with now n=12
 # ideally, cv < 0.1. otherwise, < 0.2 still acceptable.
 all_results %>%
   group_by(host_age_group, days42, Year) %>%
   summarise(
-    mean_shannon = mean(shannon),
-    sd_shannon   = sd(shannon),
-    cv           = sd(shannon) / mean(shannon)
+    mean_shannon = mean(shannon), # mean
+    sd_shannon   = sd(shannon), # standard deviation
+    cv           = sd(shannon) / mean(shannon) # coefficient of variation
   )
+
+# when choosing only reads which are >5% of the total sample, cv is good. at >1%, cv is too high, due to low-occurence species popping up.
