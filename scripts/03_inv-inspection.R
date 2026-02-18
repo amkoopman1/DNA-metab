@@ -305,7 +305,7 @@ all_results <- bind_rows(results_list)
 # compare whether runs are different
 kruskal.test(shannon ~ run, data = all_results) 
 
-# mu, sd and variance of groups after 100 runs on random pulls, with now n=12
+# mu, sd and variance of groups after 20 runs on random pulls, with now n=10
 # ideally, cv < 0.1. otherwise, < 0.2 still acceptable.
 all_results %>%
   group_by(host_age_group, days42, Year) %>%
@@ -315,4 +315,4 @@ all_results %>%
     cv           = sd(shannon) / mean(shannon) # coefficient of variation
   )
 
-# when choosing only reads which are >=3% of the total sample, cv is good. at <3%, cv is too high, due to low-occurence species popping up in some occurrences. 
+
