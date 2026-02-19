@@ -114,13 +114,25 @@ sum_samples_species_season_year <- samples_species_season_year %>%
   summarise(count = n())
 
 
-# write to google sheets with maximum overlap
 
+
+
+
+
+
+
+
+
+# write to google sheets with maximum overlap
 
 
 # take samples and write to google sheets
 # List your dataframes
 dataframes <- list(samples_species_season_year, samples_season_year_age,samples_species_age, samples_species_year)
+
+# sample size per analysis
+sample_sizes_per_analysis <- c(12, 12, 12, 12)
+
 
 # Define grouping columns for each dataframe
 grouping_vars <- list(
@@ -143,6 +155,9 @@ for(i in 1:4) {
   
   # Get current dataframe
   current_df <- dataframes[[i]]
+  
+  # Get sample size for this analysis
+  n_samples <- sample_sizes_per_analysis[i]
   
   # Split into 4 priority tiers
   # Tier 1: Overlap + no 'nee' (BEST)
@@ -188,8 +203,8 @@ for(i in 1:4) {
       tier4_group <- tier4_group %>% filter(.data[[col]] == group_filter_list[[col]])
     }
     
-    # Sample up to 14, filling from tiers in priority order
-    remaining <- 12 # number of samples per group
+    # Sample up to n_samples, filling from tiers in priority order
+    remaining <- n_samples
     group_sample <- data.frame()
     
     # Take from tier 1 (overlap + no nee)
@@ -286,13 +301,28 @@ samples_4_sum <- database_samples[["samples_4"]] %>%
 samples_4_sum
 
 
-# 16-02-2026
-# total samples
-180+284+48+72
+# ===== TOTAL SUMMARY ACROSS ALL 4 ANALYSES =====
+cat("\n===== TOTAL SUMMARY ACROSS ALL 4 ANALYSES =====\n")
 
-# new samples for DNA isolation
-180-9-78+176-91-9+17+8 #194
+# Get unique samples (since samples can be reused across analyses)
+unique_samples <- all_samples %>% distinct(Feces, .keep_all = TRUE)
 
-# new samples for PCR
-180-9+176-9+17+8 #363
+# Total unique samples
+total_samples <- nrow(unique_samples)
+
+# Count by sequencing status
+total_nee <- sum(unique_samples$Sequenced == "nee")
+total_coi <- sum(unique_samples$Sequenced == "coi")
+total_coiplant <- sum(unique_samples$Sequenced == "coi+plant")
+
+# Samples needing PCR = nee + coi (coi+plant already done)
+samples_need_pcr <- total_nee + total_coi
+
+cat("Total unique samples:", total_samples, "\n")
+cat("- Need DNA isolation (nee):", total_nee, "\n")
+cat("- Already have COI:", total_coi, "\n")
+cat("- Already have COI+plant (no PCR needed):", total_coiplant, "\n")
+cat("- Total with sequencing data (coi + coi+plant):", total_coi + total_coiplant, "\n")
+cat("- New samples for DNA isolation:", total_nee, "\n")
+cat("- Samples needing PCR (nee + coi):", samples_need_pcr, "\n")
 
