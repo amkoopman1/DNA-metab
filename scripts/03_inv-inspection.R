@@ -43,6 +43,7 @@ data_order2species <- data_inv1 %>% group_by(order) %>% distinct(species)
 
 # highest rra species per order
 data_order_max_rra <- data_inv1 %>% group_by(order, species) %>% summarise(avg_rra = mean(rra, na.rm = TRUE)) %>% slice_max(avg_rra)
+#View(data_order_max_rra)
 
 # highest rra family per order
 data_family_max_rra <- data_inv1 %>% group_by(order, family) %>% summarise(avg_rra = mean(rra, na.rm = TRUE)) %>% slice_max(avg_rra)
@@ -1247,236 +1248,236 @@ data_inv1 %>%
 
 
 
-
-
-
-## have to do it four seperate times for different filters???
-
-
-
-## compare between and within group variance 
-
-# Define the range of sample sizes to test
-sample_sizes <- c(seq(2,24))
-n_iterations <- 50
-
-# on choosing safe iteration
-
-# chance of duplication (birthday paradox)
-#1 - exp(-iterations^2 / (2 * choose(pool_size, target sample_size)))
-1 - exp(-75^2 / (2 * choose(24, 18)))
-
-# Define grouping types - each has only ONE grouping variable
-grouping_types <- list(
-  "days42" = c("days42"),
-  "age" = c("host_age_group"),
-  "days21" = c("days21"),
-  "year" = c("Year"))
-
-# STEP 1: Create separate sample pools for each grouping type
-# Select 25 random samples total for each grouping type
-sample_pools <- list()
-
-for (grouping_name in names(grouping_types)) {
-  
-  # Get 25 random unique sample_ids from data_inv1
-  all_sample_ids <- unique(data_inv1$sample_id)
-  selected_samples <- sample(all_sample_ids, size = 25)
-  
-  # Create pool with those 25 samples
-  pool_data <- data_inv1 %>%
-    filter(sample_id %in% selected_samples)
-  
-  # Verify the pool
-  n_samples <- n_distinct(pool_data$sample_id)
-  print(paste(grouping_name, "pool has", n_samples, "unique samples"))
-  
-  sample_pools[[grouping_name]] <- pool_data
-}
-
-# STEP 2: Run analyses using the pre-created pools
-all_results <- data.frame()
-
-for (grouping_name in names(sample_pools)) {
-  
-  grouping_vars <- grouping_types[[grouping_name]]
-  pool_data <- sample_pools[[grouping_name]]
-  
-  # Loop through each sample size
-  for (sample_size in sample_sizes) {
-    
-    results_list <- vector("list", n_iterations)
-    
-    # Run iterations for current sample size and grouping
-    for (i in 1:n_iterations) {
-      
-      g_data_inv1 <- pool_data %>%
-        select(sample_id, host_age_group, species, family, order, rra, days42, days21, Year, day_of_year) %>%
-        # Sample n unique sample_ids from the pool (not grouped)
-        filter(sample_id %in% {
-          unique_ids <- unique(sample_id)
-          sample(unique_ids, size = min(sample_size, length(unique_ids)))
-        })
-      
-      # Calculate diversity - pivot species to columns
-      g_data_div_sp <- g_data_inv1 %>%
-        filter(!is.na(species)) %>%
-        select(c(rra, species, all_of(grouping_vars), sample_id)) %>%
-        group_by(across(all_of(c("species", grouping_vars)))) %>%
-        filter(n_distinct(sample_id) >= 1) %>%
-        summarise(rra = mean(rra, na.rm = TRUE), .groups = "drop") %>%
-        pivot_wider(names_from = species, 
-                    values_from = rra, 
-                    values_fill = 0) %>%
-        ungroup()
-      
-      # Calculate Shannon diversity (excluding grouping columns)
-      diversity_cols <- g_data_div_sp %>% 
-        select(-all_of(grouping_vars))
-      
-      g_shannon_sp <- diversity(diversity_cols, index = "shannon")
-      
-      # Store results - one shannon value per demographic group
-      g_result_sp <- g_data_div_sp %>%
-        select(all_of(grouping_vars)) %>%
-        mutate(
-          shannon = g_shannon_sp,
-          run = i,
-          sample_size = sample_size,
-          grouping = grouping_name
-        )
-      
-      results_list[[i]] <- g_result_sp
-    }
-    
-    # Bind results for this sample size
-    g_sample_results <- bind_rows(results_list)
-    
-    # Append to overall results
-    all_results <- bind_rows(all_results, g_sample_results)
-    print(paste("Completed:", grouping_name, "- Sample size:", sample_size, "- All", n_iterations, "iterations"))
-  }
-}
-
-# STEP 3: Calculate summary statistics
-
-# Summary statistics showing VARIATION BETWEEN GROUPS
-summary_stats_between_groups <- all_results %>%
-  group_by(sample_size, grouping, run) %>%
-  summarise(
-    mean_shannon = mean(shannon, na.rm = TRUE),
-    sd_shannon = sd(shannon, na.rm = TRUE),
-    cv = sd(shannon, na.rm = TRUE) / mean(shannon, na.rm = TRUE),
-    n_groups = n(),
-    .groups = "drop"
-  ) %>%
-  group_by(sample_size, grouping) %>%
-  summarise(
-    mean_of_means = mean(mean_shannon, na.rm = TRUE),
-    mean_sd_between_groups = mean(sd_shannon, na.rm = TRUE),
-    mean_cv_between_groups = mean(cv, na.rm = TRUE),
-    sd_of_means = sd(mean_shannon, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-print("Between-group variation:")
-print(summary_stats_between_groups)
-
-# Summary statistics showing VARIATION WITHIN GROUPS
-summary_stats_within_groups <- all_results %>%
-  group_by(sample_size, grouping, across(any_of(c("Year", "host_age_group", "days21", "days42")))) %>%
-  summarise(
-    mean_shannon = mean(shannon, na.rm = TRUE),
-    sd_shannon = sd(shannon, na.rm = TRUE),
-    cv = sd(shannon, na.rm = TRUE) / mean(shannon, na.rm = TRUE),
-    n_runs = n(),
-    .groups = "drop"
-  )
-
-print("Within-group variation (by specific group):")
-print(summary_stats_within_groups)
-
-# Average within-group variation across all groups
-summary_stats_avg_within <- summary_stats_within_groups %>%
-  group_by(sample_size, grouping) %>%
-  summarise(
-    mean_shannon = mean(mean_shannon, na.rm = TRUE),
-    mean_sd_within_groups = mean(sd_shannon, na.rm = TRUE),
-    mean_cv_within_groups = mean(cv, na.rm = TRUE),
-    sd_of_shannon = sd(mean_shannon, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-print("Average within-group variation:")
-print(summary_stats_avg_within)
-
-# Plot: Shannon diversity showing BETWEEN-GROUP variation
-be_p3 <- ggplot(summary_stats_between_groups, aes(x = sample_size, y = mean_of_means)) +
-  geom_line(linewidth = 1, color = "blue") +
-  geom_point(size = 3, color = "blue") +
-  geom_errorbar(aes(ymin = mean_of_means - mean_sd_between_groups, 
-                    ymax = mean_of_means + mean_sd_between_groups), 
-                width = 1, alpha = 0.5, color = "blue") +
-  facet_wrap(~grouping, scales = "free_y", ncol = 2) +ylim(0.5,3.5)+
-  labs(title = "Shannon diversity by sample size",
-       subtitle = "Variation BETWEEN groups (25 samples per grouping type)",
-       x = "Sample size",
-       y = "Shannon diversity (mean ± SD between groups)") +
-  theme_minimal()
-
-print(be_p3)
-
-# Plot: Shannon diversity showing WITHIN-GROUP variation
-in_p3 <- ggplot(summary_stats_avg_within, aes(x = sample_size, y = mean_shannon)) +
-  geom_line(linewidth = 1, color = "blue") +
-  geom_point(size = 3, color = "blue") +
-  geom_errorbar(aes(ymin = mean_shannon - mean_sd_within_groups, 
-                    ymax = mean_shannon + mean_sd_within_groups), 
-                width = 1, alpha = 0.5, color = "blue") +
-  facet_wrap(~grouping, scales = "free_y", ncol = 2) + ylim(0.5,3.5)+
-  labs(title = "Shannon diversity by sample size",
-       subtitle = "Average variation WITHIN groups (across random samples)",
-       x = "Sample size",
-       y = "Shannon diversity (mean ± avg SD within groups)") +
-  theme_minimal()
-
-print(in_p3)
-
-
-# Combine both datasets with a label
-combined_stats <- bind_rows(
-  summary_stats_avg_within %>% 
-    select(sample_size, grouping, mean_cv = mean_cv_within_groups) %>%
-    mutate(variance_type = "Within-group"),
-  summary_stats_between_groups %>% 
-    select(sample_size, grouping, mean_cv = mean_cv_between_groups) %>%
-    mutate(variance_type = "Between-group")
-)
-
-
-facet_labels <- c(
-  "days42" = "Days 42 (groups: 3-5)",
-  "age" = "Age (nestling-adult)",
-  "days21" = "Days 21 (groups: 8-10)",
-  "year" = "Years (groups: 2020-2022)"
-)
-
-# Combined plot
-combined_p4 <- ggplot(combined_stats, aes(x = sample_size, y = mean_cv, color = variance_type)) +
-  geom_line(linewidth = 1) +
-  geom_point(size = 3) +
-  geom_hline(yintercept = 0.1, linetype = "dashed", color = "forestgreen", alpha = 0.5) +
-  geom_hline(yintercept = 0.2, linetype = "dashed", color = "purple", alpha = 0.5) +
-  scale_color_manual(values = c("Within-group" = "blue", "Between-group" = "red")) +
-  facet_wrap(~grouping, scales = "free_y", ncol = 2, 
-             labeller = labeller(grouping = facet_labels)) +  ylim(0, NA) +
-  labs(title = "Coefficient of Variation by Sample Size",
-       subtitle = "Between-group (true variation) vs Within-group (sampling stability) \n25 samples per grouping type, 50 iterations",
-       x = "Sample Size",
-       y = "CV",
-       color = "Variance Type",
-       caption = "Green < CV 0.1 (ideal), purple < CV 0.2 (acceptable)") +
-  theme_minimal() +
-  theme(legend.position = "bottom")
-
-print(combined_p4)
+# 
+# 
+# 
+# ## have to do it four seperate times for different filters???
+# 
+# 
+# 
+# ## compare between and within group variance 
+# 
+# # Define the range of sample sizes to test
+# sample_sizes <- c(seq(2,24))
+# n_iterations <- 50
+# 
+# # on choosing safe iteration
+# 
+# # chance of duplication (birthday paradox)
+# #1 - exp(-iterations^2 / (2 * choose(pool_size, target sample_size)))
+# 1 - exp(-75^2 / (2 * choose(24, 18)))
+# 
+# # Define grouping types - each has only ONE grouping variable
+# grouping_types <- list(
+#   "days42" = c("days42"),
+#   "age" = c("host_age_group"),
+#   "days21" = c("days21"),
+#   "year" = c("Year"))
+# 
+# # STEP 1: Create separate sample pools for each grouping type
+# # Select 25 random samples total for each grouping type
+# sample_pools <- list()
+# 
+# for (grouping_name in names(grouping_types)) {
+#   
+#   # Get 25 random unique sample_ids from data_inv1
+#   all_sample_ids <- unique(data_inv1$sample_id)
+#   selected_samples <- sample(all_sample_ids, size = 25)
+#   
+#   # Create pool with those 25 samples
+#   pool_data <- data_inv1 %>%
+#     filter(sample_id %in% selected_samples)
+#   
+#   # Verify the pool
+#   n_samples <- n_distinct(pool_data$sample_id)
+#   print(paste(grouping_name, "pool has", n_samples, "unique samples"))
+#   
+#   sample_pools[[grouping_name]] <- pool_data
+# }
+# 
+# # STEP 2: Run analyses using the pre-created pools
+# all_results <- data.frame()
+# 
+# for (grouping_name in names(sample_pools)) {
+#   
+#   grouping_vars <- grouping_types[[grouping_name]]
+#   pool_data <- sample_pools[[grouping_name]]
+#   
+#   # Loop through each sample size
+#   for (sample_size in sample_sizes) {
+#     
+#     results_list <- vector("list", n_iterations)
+#     
+#     # Run iterations for current sample size and grouping
+#     for (i in 1:n_iterations) {
+#       
+#       g_data_inv1 <- pool_data %>%
+#         select(sample_id, host_age_group, species, family, order, rra, days42, days21, Year, day_of_year) %>%
+#         # Sample n unique sample_ids from the pool (not grouped)
+#         filter(sample_id %in% {
+#           unique_ids <- unique(sample_id)
+#           sample(unique_ids, size = min(sample_size, length(unique_ids)))
+#         })
+#       
+#       # Calculate diversity - pivot species to columns
+#       g_data_div_sp <- g_data_inv1 %>%
+#         filter(!is.na(species)) %>%
+#         select(c(rra, species, all_of(grouping_vars), sample_id)) %>%
+#         group_by(across(all_of(c("species", grouping_vars)))) %>%
+#         filter(n_distinct(sample_id) >= 1) %>%
+#         summarise(rra = mean(rra, na.rm = TRUE), .groups = "drop") %>%
+#         pivot_wider(names_from = species, 
+#                     values_from = rra, 
+#                     values_fill = 0) %>%
+#         ungroup()
+#       
+#       # Calculate Shannon diversity (excluding grouping columns)
+#       diversity_cols <- g_data_div_sp %>% 
+#         select(-all_of(grouping_vars))
+#       
+#       g_shannon_sp <- diversity(diversity_cols, index = "shannon")
+#       
+#       # Store results - one shannon value per demographic group
+#       g_result_sp <- g_data_div_sp %>%
+#         select(all_of(grouping_vars)) %>%
+#         mutate(
+#           shannon = g_shannon_sp,
+#           run = i,
+#           sample_size = sample_size,
+#           grouping = grouping_name
+#         )
+#       
+#       results_list[[i]] <- g_result_sp
+#     }
+#     
+#     # Bind results for this sample size
+#     g_sample_results <- bind_rows(results_list)
+#     
+#     # Append to overall results
+#     all_results <- bind_rows(all_results, g_sample_results)
+#     print(paste("Completed:", grouping_name, "- Sample size:", sample_size, "- All", n_iterations, "iterations"))
+#   }
+# }
+# 
+# # STEP 3: Calculate summary statistics
+# 
+# # Summary statistics showing VARIATION BETWEEN GROUPS
+# summary_stats_between_groups <- all_results %>%
+#   group_by(sample_size, grouping, run) %>%
+#   summarise(
+#     mean_shannon = mean(shannon, na.rm = TRUE),
+#     sd_shannon = sd(shannon, na.rm = TRUE),
+#     cv = sd(shannon, na.rm = TRUE) / mean(shannon, na.rm = TRUE),
+#     n_groups = n(),
+#     .groups = "drop"
+#   ) %>%
+#   group_by(sample_size, grouping) %>%
+#   summarise(
+#     mean_of_means = mean(mean_shannon, na.rm = TRUE),
+#     mean_sd_between_groups = mean(sd_shannon, na.rm = TRUE),
+#     mean_cv_between_groups = mean(cv, na.rm = TRUE),
+#     sd_of_means = sd(mean_shannon, na.rm = TRUE),
+#     .groups = "drop"
+#   )
+# 
+# print("Between-group variation:")
+# print(summary_stats_between_groups)
+# 
+# # Summary statistics showing VARIATION WITHIN GROUPS
+# summary_stats_within_groups <- all_results %>%
+#   group_by(sample_size, grouping, across(any_of(c("Year", "host_age_group", "days21", "days42")))) %>%
+#   summarise(
+#     mean_shannon = mean(shannon, na.rm = TRUE),
+#     sd_shannon = sd(shannon, na.rm = TRUE),
+#     cv = sd(shannon, na.rm = TRUE) / mean(shannon, na.rm = TRUE),
+#     n_runs = n(),
+#     .groups = "drop"
+#   )
+# 
+# print("Within-group variation (by specific group):")
+# print(summary_stats_within_groups)
+# 
+# # Average within-group variation across all groups
+# summary_stats_avg_within <- summary_stats_within_groups %>%
+#   group_by(sample_size, grouping) %>%
+#   summarise(
+#     mean_shannon = mean(mean_shannon, na.rm = TRUE),
+#     mean_sd_within_groups = mean(sd_shannon, na.rm = TRUE),
+#     mean_cv_within_groups = mean(cv, na.rm = TRUE),
+#     sd_of_shannon = sd(mean_shannon, na.rm = TRUE),
+#     .groups = "drop"
+#   )
+# 
+# print("Average within-group variation:")
+# print(summary_stats_avg_within)
+# 
+# # Plot: Shannon diversity showing BETWEEN-GROUP variation
+# be_p3 <- ggplot(summary_stats_between_groups, aes(x = sample_size, y = mean_of_means)) +
+#   geom_line(linewidth = 1, color = "blue") +
+#   geom_point(size = 3, color = "blue") +
+#   geom_errorbar(aes(ymin = mean_of_means - mean_sd_between_groups, 
+#                     ymax = mean_of_means + mean_sd_between_groups), 
+#                 width = 1, alpha = 0.5, color = "blue") +
+#   facet_wrap(~grouping, scales = "free_y", ncol = 2) +ylim(0.5,3.5)+
+#   labs(title = "Shannon diversity by sample size",
+#        subtitle = "Variation BETWEEN groups (25 samples per grouping type)",
+#        x = "Sample size",
+#        y = "Shannon diversity (mean ± SD between groups)") +
+#   theme_minimal()
+# 
+# print(be_p3)
+# 
+# # Plot: Shannon diversity showing WITHIN-GROUP variation
+# in_p3 <- ggplot(summary_stats_avg_within, aes(x = sample_size, y = mean_shannon)) +
+#   geom_line(linewidth = 1, color = "blue") +
+#   geom_point(size = 3, color = "blue") +
+#   geom_errorbar(aes(ymin = mean_shannon - mean_sd_within_groups, 
+#                     ymax = mean_shannon + mean_sd_within_groups), 
+#                 width = 1, alpha = 0.5, color = "blue") +
+#   facet_wrap(~grouping, scales = "free_y", ncol = 2) + ylim(0.5,3.5)+
+#   labs(title = "Shannon diversity by sample size",
+#        subtitle = "Average variation WITHIN groups (across random samples)",
+#        x = "Sample size",
+#        y = "Shannon diversity (mean ± avg SD within groups)") +
+#   theme_minimal()
+# 
+# print(in_p3)
+# 
+# 
+# # Combine both datasets with a label
+# combined_stats <- bind_rows(
+#   summary_stats_avg_within %>% 
+#     select(sample_size, grouping, mean_cv = mean_cv_within_groups) %>%
+#     mutate(variance_type = "Within-group"),
+#   summary_stats_between_groups %>% 
+#     select(sample_size, grouping, mean_cv = mean_cv_between_groups) %>%
+#     mutate(variance_type = "Between-group")
+# )
+# 
+# 
+# facet_labels <- c(
+#   "days42" = "Days 42 (groups: 3-5)",
+#   "age" = "Age (nestling-adult)",
+#   "days21" = "Days 21 (groups: 8-10)",
+#   "year" = "Years (groups: 2020-2022)"
+# )
+# 
+# # Combined plot
+# combined_p4 <- ggplot(combined_stats, aes(x = sample_size, y = mean_cv, color = variance_type)) +
+#   geom_line(linewidth = 1) +
+#   geom_point(size = 3) +
+#   geom_hline(yintercept = 0.1, linetype = "dashed", color = "forestgreen", alpha = 0.5) +
+#   geom_hline(yintercept = 0.2, linetype = "dashed", color = "purple", alpha = 0.5) +
+#   scale_color_manual(values = c("Within-group" = "blue", "Between-group" = "red")) +
+#   facet_wrap(~grouping, scales = "free_y", ncol = 2, 
+#              labeller = labeller(grouping = facet_labels)) +  ylim(0, NA) +
+#   labs(title = "Coefficient of Variation by Sample Size",
+#        subtitle = "Between-group (true variation) vs Within-group (sampling stability) \n25 samples per grouping type, 50 iterations",
+#        x = "Sample Size",
+#        y = "CV",
+#        color = "Variance Type",
+#        caption = "Green < CV 0.1 (ideal), purple < CV 0.2 (acceptable)") +
+#   theme_minimal() +
+#   theme(legend.position = "bottom")
+# 
+# print(combined_p4)
