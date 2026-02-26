@@ -69,7 +69,9 @@ ggplot(sum_season_year_age, aes(days21, count, color = Year, shape = Age)) +
   geom_jitter() + ggtitle("Rietzanger over age and season and years")
 
 samples_season_year_age <- season_year_age %>%
-  filter(days21 %in% c('6','7','8','9','10') & Year %in% c('2020', '2022'), Age %in% c('N1', 'nestling')) 
+  filter(((days21 %in% c('6','7','8','9','10') & Year %in% c('2020', '2022')) |
+            (days21 == '9' & Year == '2021')),
+         Age %in% c('N1', 'nestling'))
 
 # species * year
 
@@ -361,7 +363,7 @@ samples_1_sum
 
 #samples_season_year_age
 samples_2_sum <- database_samples[["total_list_samples"]] %>%
-  filter(days21 %in% c('6','7','8','9','10') & Year %in% c('2020', '2022'), Age %in% c('N1', 'nestling'), Species %in% c('Rietzanger')) %>%
+  filter(days21 %in% c('6','7','8','9','10') & Year %in% c('2020', '2021', '2022'), Age %in% c('N1', 'nestling'), Species %in% c('Rietzanger')) %>%
   group_by(Age, days21, Year) %>%
   summarise(avg_day = mean(day_of_year), count= n())
 samples_2_sum
