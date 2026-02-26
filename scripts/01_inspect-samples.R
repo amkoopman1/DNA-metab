@@ -164,8 +164,22 @@ View(count_an_data)
 yes_an_data <- count_an_data %>%
   filter(processed == 'yes')
 
-ggplot(yes_an_data, aes(Month, count, color = source)) + geom_jitter()
 
+kj1_cap <- an_data %>% filter(source == 'captures', Age == '1kj')  %>%
+  mutate(day_of_year = yday(Date),  # Day of year (1-365)
+         days21 = ceiling((day_of_year +1) / 21),  # retain days21 for later
+         days42 = ceiling((day_of_year +1) / 42), # the + offsets the window of time
+         Year = substr(Date, 1,4)) %>% group_by(days21, Year, Species) %>% summarise(count = n()) 
+
+ggplot(kj1_cap, aes(days21, count, color = Year, shape = Species)) + geom_point()
+
+
+kj1_nest <- an_data %>% filter(source == 'nest')  %>%
+  mutate(day_of_year = yday(Date),  # Day of year (1-365)
+         days21 = ceiling((day_of_year +1) / 21),  # retain days21 for later
+         days42 = ceiling((day_of_year +1) / 42), # the + offsets the window of time
+         Year = substr(Date, 1,4)) %>% group_by(days21, Year, Species) %>% summarise(count = n()) 
+ggplot(kj1_nest, aes(days21, count, color = Year, shape = Species)) + geom_point()
 
 
 # for Rietzanger captures

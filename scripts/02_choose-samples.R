@@ -24,8 +24,8 @@ all_data <- bind_rows(
   )%>%
   mutate(Feces = str_sub(Feces, -6, -1),
          Age = replace_na(Age, "nestling"))%>%
-  filter(str_sub(Feces, 1, 1) == "A",  # make sure sample name is correct
-         Age %in% c('N1', 'nestling'))
+  filter(str_sub(Feces, 1, 1) == "A" # make sure sample name is correct
+         )
 
 #View(all_data)
 
@@ -35,6 +35,7 @@ all_data <- bind_rows(
 species_age <- all_data %>%
   mutate(day_of_year = yday(Date),  # Day of year (1-365)
          days21 = ceiling((day_of_year -6) / 21), # the + changes the window of time
+         days42 = ceiling((day_of_year +1) / 42), # the + changes the window of time
          Year = substr(Date, 1,4)) %>%
   filter(Species %in% c('Kleine karekiet', 'Rietzanger'), 
          Year %in% c('2022'), Age %in% c('N1', 'nestling'))
@@ -55,6 +56,7 @@ samples_species_age <- species_age %>%
 season_year_age <- all_data %>%
   mutate(day_of_year = yday(Date),  # Day of year (1-365)
          days21 = ceiling((day_of_year +1) / 21), # the + changes the window of time
+         days42 = ceiling((day_of_year +1) / 42), # the + changes the window of time
          Year = substr(Date, 1,4)) %>%
   filter(Species %in% c('Rietzanger'))
 
@@ -67,14 +69,16 @@ ggplot(sum_season_year_age, aes(days21, count, color = Year, shape = Age)) +
   geom_jitter() + ggtitle("Rietzanger over age and season and years")
 
 samples_season_year_age <- season_year_age %>%
-  filter(days21 %in% c('6','7', '8', '9', '10'),
-         Year %in% c('2020', '2022'))
+  filter(days21 %in% c('6','7','8','9','10') & Year %in% c('2020', '2022'), Age %in% c('N1', 'nestling')) 
 
 # species * year
+
+# decided not to use on 26-02-2026
 
 species_year <- all_data %>%
   mutate(day_of_year = yday(Date),  # Day of year (1-365)
          days21 = ceiling((day_of_year -6) / 21), # the + offsets the window of time
+         days42 = ceiling((day_of_year +1) / 42), # the + offsets the window of time
          Year = substr(Date, 1,4)) %>%
   filter(Species %in% c('Kleine karekiet', 'Rietzanger'), Age == 'N1') %>%
   group_by(Species, days21, Year)
@@ -88,7 +92,8 @@ ggplot(sum_species_year, aes(days21, count, color = Year, shape = Species)) +
 
 samples_species_year <- species_year %>%
   filter(days21 == '8',
-         Year != '2023') 
+         Year != '2023')
+
 
 #species * 6 weeks * year
 
@@ -115,10 +120,30 @@ sum_samples_species_season_year <- samples_species_season_year %>%
   summarise(count = n())
 
 
+# juvenile captures
 
+age_year <- all_data %>%
+  mutate(day_of_year = yday(Date),
+         days21 = ceiling((day_of_year + 1) / 21),
+         days42 = ceiling((day_of_year + 1) / 42),
+         Year = substr(Date, 1, 4)
+         ) %>%
+  filter(Species %in% c('Rietzanger'))
 
+sum_age_year <- age_year %>%
+  group_by(Age, Year, days21) %>%
+  summarise(count = n())
 
+ggplot(sum_age_year, aes(days21, count, color = Year, shape = Age)) + 
+  geom_jitter() + ggtitle("Rietzanger three age classes")
 
+samples_age_year <- age_year %>%
+  filter(days21 %in% c('10'),
+         Year %in% c('2020'))
+
+sum_samples_age_year <- samples_age_year %>%
+  group_by(Species, Year, days21, Age) %>%
+  summarise(count = n())
 
 
 
@@ -129,7 +154,7 @@ sum_samples_species_season_year <- samples_species_season_year %>%
 
 # take samples and write to google sheets
 # List your dataframes
-dataframes <- list(samples_species_season_year, samples_season_year_age,samples_species_age, samples_species_year)
+dataframes <- list(samples_species_season_year, samples_season_year_age,samples_species_age, samples_age_year)
 
 # sample size per analysis
 # Base sample size
@@ -140,16 +165,15 @@ conditional_sizes <- list(
   list(var = "Year", value = "2021", n = 10),
   list(var = "days42", value = "4", n = 20),
   list(var = "days21", value = "8", n = 20),
-  list(var = "days21", value = "9", n = 16)
+  list(var = "days21", value = "10", n = 16)
 )
-
 
 # Define grouping columns for each dataframe
 grouping_vars <- list(
   c("Species", "days42", "Year"), # groups for species_season_year
   c("days21", "Year", "Age"),    # groups for season_year_age
-  c("Species", "Age", "Year", "days21"),           # groups for samples_species_age
-  c("Species", "Year")          # groups for species_year
+  c("Species", "Age", "Year", "days21"),   # groups for samples_species_age
+  c("Age", "Year", "days21")          # groups for age_year
   
 )
 
@@ -327,12 +351,12 @@ samples_1_sum <-  database_samples[["samples_1"]] %>%
   summarise(avg_day = mean(day_of_year), count= n())
 samples_1_sum
 
-View(database_samples[["samples_1"]] %>%
-       group_by(Year, Species, days42) %>%
-       summarise(n_samples = n(), .groups = "drop") %>%
-       pivot_wider(names_from = days42, values_from = n_samples) %>%
-       select(Year, Species, `3`, `4`, `5`)
-)
+# View(database_samples[["samples_1"]] %>%
+#        group_by(Year, Species, days42) %>%
+#        summarise(n_samples = n(), .groups = "drop") %>%
+#        pivot_wider(names_from = days42, values_from = n_samples) %>%
+#        select(Year, Species, `3`, `4`, `5`)
+# )
 
 #samples_season_year_age
 samples_2_sum <-  database_samples[["samples_2"]] %>%
@@ -340,11 +364,11 @@ samples_2_sum <-  database_samples[["samples_2"]] %>%
   summarise(avg_day = mean(day_of_year), count= n())
 samples_2_sum
 
-View(database_samples[["samples_2"]] %>%
-       group_by(Year, days21, Age) %>%
-       summarise( n_samples = n(), .groups = "drop") %>%
-       pivot_wider(names_from = days21, values_from = c( n_samples)) 
-)
+# View(database_samples[["samples_2"]] %>%
+#        group_by(Year, days21, Age) %>%
+#        summarise( n_samples = n(), .groups = "drop") %>%
+#        pivot_wider(names_from = days21, values_from = c( n_samples)) 
+# )
 
 #samples_species_age
 samples_3_sum <- database_samples[["samples_3"]] %>%
@@ -352,20 +376,20 @@ samples_3_sum <- database_samples[["samples_3"]] %>%
   summarise(avg_day = mean(day_of_year), count= n())
 samples_3_sum
 
-View(database_samples[["samples_3"]] %>%
-       group_by(Year, Species, Age) %>%
-       summarise( n_samples = n(), .groups = "drop") %>%
-       pivot_wider(names_from = Species, values_from = c( n_samples)) 
-)
+# View(database_samples[["samples_3"]] %>%
+#        group_by(Year, Species, Age) %>%
+#        summarise( n_samples = n(), .groups = "drop") %>%
+#        pivot_wider(names_from = Species, values_from = c( n_samples)) 
+# )
 
 #samples_species_year
 samples_4_sum <- database_samples[["samples_4"]] %>%
-  group_by(Year, Species) %>%
+  group_by(Age, Year, days21) %>%
   summarise(avg_day = mean(day_of_year), count= n())
 samples_4_sum
 
-View(database_samples[["samples_4"]] %>%
-  group_by(Year, Species) %>%
-  summarise( n_samples = n(), .groups = "drop") %>%
-  pivot_wider(names_from = Species, values_from = c( n_samples)) 
-)
+# View(database_samples[["samples_4"]] %>%
+#   group_by(Age, Year, days21) %>%
+#   summarise( n_samples = n(), .groups = "drop") %>%
+#   pivot_wider(names_from = Species, values_from = c( n_samples)) 
+# )
