@@ -300,3 +300,23 @@ rk_35_data <- an_data %>%
 
 ggplot(rk_35_data, aes(timebin, count, shape = Species, color = Year)) + 
   geom_point()+ggtitle("Karekiet + rietzanger, per 6 weeks")
+
+
+## inspect cuckoo
+
+cuckoo_data <- database[["Nestlings"]] %>%
+  filter(Species == 'Koekoek') %>%
+  mutate(host = substr(Nest_ID, 1,2), # host bird species
+         day_of_year = yday(Date),  # Day of year (1-365)
+         timebin = ceiling((day_of_year +14) / 42), # the + changes the window of time
+         Year = substr(Date, 1,4)) %>%
+  group_by(timebin, host, Year) %>%
+  summarise(count = n())
+
+         
+
+names(cuckoo_data)
+
+ggplot(cuckoo_data, aes(timebin, count, shape = host, color = Year)) + 
+  geom_jitter(width = 0.2, height = 0.1)+ggtitle("Koekoek waardvogel, per 6 weeks") +
+  scale_x_continuous(breaks = seq(5, 6.2, 1))+  scale_y_continuous(breaks = seq(1, 2.1, 1))

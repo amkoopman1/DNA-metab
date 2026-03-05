@@ -401,3 +401,17 @@ samples_4_sum
 #   summarise( n_samples = n(), .groups = "drop") %>%
 #   pivot_wider(names_from = Species, values_from = c( n_samples)) 
 # )
+
+
+# randomize order of samples for processing
+
+set.seed(2347723)
+
+# Get unique samples (since samples can be reused across analyses)
+samples_1 <- database_samples[["total_list_samples"]] %>% distinct(Feces, .keep_all = TRUE)
+
+random_samples <- samples_1[sample(nrow(samples_1)),]
+
+# Write unique samples to Google Sheet
+sheet_write(random_samples, ss = samples_url, sheet = "total_list_random")
+
