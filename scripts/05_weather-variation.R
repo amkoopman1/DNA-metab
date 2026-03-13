@@ -197,7 +197,7 @@ atmos_long %>%
   mutate(Month = factor(Month, levels = c("JAN", "FEB", "MAR", "APR", "MAY", "JUN",
                                           "JUL", "AUG", "SEP", "OCT", "NOV", "DEC", "YEAR"))) %>%
   ggplot(aes(x = Month, y = variability)) +
-  geom_col(fill = "steelblue") +
+  geom_col(fill = "slategray3") +
   labs(title = "hPa variability (between years) of 1995-2025",
        y = "variability (sd)",
        x = "period") +
