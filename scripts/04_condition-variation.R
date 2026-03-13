@@ -46,9 +46,9 @@ var_nest_data <- database[["Nestlings"]] %>% select(Date, Species, Tarsus, Weigh
 # mean variables
 
 # choose between Weight, Wing, Tarsus, Fat (only for adult)
-input_var <- "Weight"
+input_var <- "Fat"
 # choose between days10, days21 and days42
-input_period <- "days10"
+input_period <- "days21"
 # set minimal group size
 n_size <- 8
 
