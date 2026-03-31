@@ -53,9 +53,16 @@ nano_data <- database_nano[["FactNanodrop"]] %>%
     n2dna          = (conc_nano *50 )/ n # ng/individual
   )
 
-nano_data %>%
+nano_data %>% 
   ggplot(aes(conc_mass,conc_nano)) + geom_point()
-  
+
+nano_data %>%
+  with(cor(conc_mass, conc_nano, use = "complete.obs"))
+
+nano_data %>%
+  filter(!taxonomic_group %in% c("Hymenoptera", "Araneae")) %>%
+  with(cor(conc_mass, conc_nano, use = "complete.obs"))
+
 # 
 # # convert to long format
 # nano_data_long <- nano_data_wide %>%
@@ -70,10 +77,10 @@ calculate_dna_pooling_simple <- function(
     nano_data,
     species_to_include,
     fractions,
-    final_volume = 10,
+    final_volume,
     species_col,
     conc_var,
-    dna_col = "conc_nano"  # always used to calculate final DNA concentration
+    dna_col = "conc_nano"  # used to calculate final DNA concentration
 ) {
   # Validate columns
   if (!species_col %in% names(nano_data)) stop("Column '", species_col, "' not found")
@@ -90,7 +97,7 @@ calculate_dna_pooling_simple <- function(
             " fractions but got ", length(fractions), ". Exiting function.")
     return(NULL)
   } 
-  if (abs(sum(fractions) - 1) > 0.001) {
+  if (abs(sum(fractions) - 1) > 0.01) {
     warning("Fractions should sum to 1, but currently sum to ", sum(fractions))
   }  
   # Concentrations used for volume scaling
@@ -128,7 +135,7 @@ calculate_dna_pooling_simple <- function(
 #use function
 calculate_dna_pooling_simple(
   nano_data,
-  # choose from 
+  # choose from: 
   # Hymenoptera, Diptera, Lepidoptera, Araneae, Conocephalus dorsalis, Leptophyes punctatissima, Stethophyma grossum or Locusta migratoria  
   species_to_include = c("Lepidoptera","Diptera","Conocephalus dorsalis"),
   fractions = c(0.33,0.33,0.33),   # fraction in final pool
