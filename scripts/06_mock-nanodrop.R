@@ -53,6 +53,8 @@ nano_data <- database_nano[["FactNanodrop"]] %>%
     n2dna          = (conc_nano *50 )/ n # ng/individual
   )
 
+
+# plot
 nano_data %>% 
   ggplot(aes(conc_mass,conc_nano)) + geom_point()
 
@@ -63,12 +65,10 @@ nano_data %>%
   filter(!taxonomic_group %in% c("Hymenoptera", "Araneae")) %>%
   with(cor(conc_mass, conc_nano, use = "complete.obs"))
 
-# 
-# # convert to long format
-# nano_data_long <- nano_data_wide %>%
-#   pivot_longer(cols = mass_empty1 :nano_230,
-#                names_to = "var",
-#                values_to = "val") 
+
+
+
+
 
 
 
@@ -80,6 +80,7 @@ calculate_dna_pooling_simple <- function(
     final_volume,
     species_col,
     conc_var,
+    dilutions = "dilution",
     dna_col = "conc_nano"  # used to calculate final DNA concentration
 ) {
   # Validate columns
@@ -102,24 +103,59 @@ calculate_dna_pooling_simple <- function(
   }  
   # Concentrations used for volume scaling
   concentrations <- data_subset[[conc_var]]
+  dilutions <- data_subset[[dilutions]]
+  dna_conc <- data_subset[[dna_col]]
   
-  # Calculate scaled volumes
-  scaled_volumes <- fractions / concentrations
+  # undiluted concentration
+  undiluted_conc <- concentrations  # from conc_var
+  
+  # actual concentration in the diluted stock
+  diluted_conc <- concentrations / dilutions
+  diluted_dna <- dna_conc / dilutions
+  
+  # calculate scaled volumes based on the diluted stock
+  scaled_volumes <- fractions / diluted_conc
   volumes <- scaled_volumes / sum(scaled_volumes) * final_volume
   
-  # Calculate final DNA concentration in mix (always using DNA column)
-  final_dna_conc <- sum(volumes * data_subset[[dna_col]]) / final_volume
+  #warning for volume too small to pipet
+  if (any(volumes < 0.5)) {
+    warning("Some calculated volumes are too small to pipet! Adjust dilutions of other components. \n",
+            paste(data_subset[[species_col]][volumes < 0.5], 
+                  "=", round(volumes[volumes < 0.5], 2), "µL", collapse = "; "))
+  }
   
+  # final concentration in the pool (still based on the DNA column)
+  final_dna_conc <- sum(volumes * diluted_dna) / final_volume
+  
+  # 
+  # # Calculate scaled volumes
+  # scaled_volumes <- fractions / (concentrations * dilutions)
+  # volumes <- scaled_volumes / sum(scaled_volumes) * final_volume 
+  # 
+  # # Calculate final DNA concentration in mix (always using DNA column)
+  # final_dna_conc <- sum(volumes * data_subset[[dna_col]]) / final_volume
+  # 
   # Output
   result <- data.frame(
+    Extraction_ID = data_subset$Extraction_ID,
     species = data_subset[[species_col]],
-    setNames(list(concentrations), conc_var),
     fraction = fractions,
     volume_uL = round(volumes, 2),
-    Extraction_ID = data_subset$Extraction_ID 
+    dilution = dilutions #,
+    # diluted_conc = diluted_conc,
+    # undiluted_conc = undiluted_conc
   )
   
   cat("\n=== How much uL to add ===\n")
+  
+  if (conc_var == "conc_nano") {
+    cat("To ratio for: DNA concentration (conc_nano)\n")
+  } else if (conc_var == "conc_mass") {
+    cat("To ratio for: dry mass (conc_mass)\n")
+  } else {
+    cat("To ratio for: unknown concentration variable:", conc_var, "\n")
+  }
+  
   cat("Final volume:", final_volume, "µL\n")
   cat("Final DNA concentration in mix:", round(final_dna_conc, 2), "ng/µL\n\n")
   print(result, row.names = FALSE)
@@ -137,9 +173,28 @@ calculate_dna_pooling_simple(
   nano_data,
   # choose from: 
   # Hymenoptera, Diptera, Lepidoptera, Araneae, Conocephalus dorsalis, Leptophyes punctatissima, Stethophyma grossum or Locusta migratoria  
-  species_to_include = c("Lepidoptera","Diptera","Conocephalus dorsalis"),
-  fractions = c(0.33,0.33,0.33),   # fraction in final pool
-  final_volume = 10, # end volume of this mix
+  species_to_include = c("Hymenoptera", "Lepidoptera","Diptera","Conocephalus dorsalis", "Araneae"),
+  fractions = c(0.2,0.2,0.2,0.2,0.2),   # fraction in final pool
+  final_volume = 25, # end volume of this mix
   species_col = "taxonomic_group",
-  conc_var = "conc_mass"  # choose dna (conc_nano)  or mass (conc_mass)
+  conc_var = "conc_nano"  # choose dna (conc_nano)  or mass (conc_mass)
 )
+
+# reset all dilutions
+nano_data <- nano_data %>%
+  mutate(
+    dilution = c(rep(1,8))
+  )
+
+# set dilutions
+nano_data <- nano_data %>%
+  mutate(
+    dilution    = c(1, # Hymenoptera
+                    10, # Diptera
+                    10, # Lepidoptera
+                    10, # Araneae
+                    10, # Conocephalus dorsalis
+                    1, # Leptophyes punctatissima
+                    1, # Stethophyma grossum
+                    1) # Locusta migratoria
+  )
