@@ -21,7 +21,7 @@ all_data <- bind_rows(
   database3[["Captures"]] %>% select(Date, Species, Feces, Age, Sequenced) %>% mutate(source = "captures"),
   database3[["Nestlings"]] %>% select(Date, Species, Feces, Sequenced) %>% mutate(source = "nest"),
   database3[["Nestlevel"]] %>% select(Date, Species, Feces, Sequenced) %>% mutate(source = "nest")
-  )%>%
+  ) %>%
   mutate(Feces = str_sub(Feces, -6, -1),
          Age = replace_na(Age, "nestling"))%>%
   filter(str_sub(Feces, 1, 1) == "A" # make sure sample name is correct
@@ -31,6 +31,7 @@ all_data <- bind_rows(
 
 # prepare datasets for sample selection
 
+# analysis 3
 # species * age 
 species_age <- all_data %>%
   mutate(day_of_year = yday(Date),  # Day of year (1-365)
@@ -50,9 +51,8 @@ ggplot(sum_species_age, aes(days21, count, color = Species, shape = Age)) +
 samples_species_age <- species_age %>%
   filter(days21 %in% c('8'))
 
-
+# analysis 2
 # season (21 days) * year * age
-
 season_year_age <- all_data %>%
   mutate(day_of_year = yday(Date),  # Day of year (1-365)
          days21 = ceiling((day_of_year +1) / 21), # the + changes the window of time
@@ -97,8 +97,8 @@ samples_species_year <- species_year %>%
          Year != '2023')
 
 
+# analysis 1
 #species * 6 weeks * year
-
 species_season_year <- all_data %>%
   mutate(day_of_year = yday(Date),  # Day of year (1-365)
          days21 = ceiling((day_of_year +1) / 21),  # retain days21 for later
@@ -121,9 +121,8 @@ sum_samples_species_season_year <- samples_species_season_year %>%
   group_by(Species, Year, days42) %>%
   summarise(count = n())
 
-
+# analysis 4
 # juvenile captures
-
 age_season <- all_data %>%
   mutate(day_of_year = yday(Date),
          days21 = ceiling((day_of_year + 1) / 21),

@@ -8,9 +8,9 @@ names(database_nano)
 
 # mass data 
 mass_data <- database_nano[["FactMashMass"]] %>%
-  mutate(across(mass_empty:mass_dry_3, as.numeric)) %>%
+  mutate(across(mass_empty_1:mass_dry_3, as.numeric)) %>%
   left_join(
-    database_nano[["DimIndivid2Mash"]] %>% 
+    database_nano[["DimSample"]] %>% 
       group_by(ID_mash) %>% 
       summarise(
         n = n() * first(volume2mashtube)
@@ -23,8 +23,8 @@ mass_data <- database_nano[["FactMashMass"]] %>%
          # % sample left after 45 minutes of extra evaporation (compared to after drying twice)
          dry_curve   = (mass_dry_3-mass_empty_2)/(mass_dry_2-mass_empty_2), 
          # corrected mass for 'undry' sample
-         mass_used = (mass_dry_used-mass_empty) * ifelse(is.na(dry_corr), 1, dry_corr),
-         mass_sample = (mass_dry_1-mass_empty)* ifelse(is.na(dry_corr), 1, dry_corr),
+         mass_used = (mass_dry_used-mass_empty_1) * ifelse(is.na(dry_corr), 1, dry_corr),
+         mass_sample = (mass_dry_1-mass_empty_1)* ifelse(is.na(dry_corr), 1, dry_corr),
          mass_individ= mass_sample/(n)) 
 
 
@@ -33,7 +33,7 @@ nano_data <- database_nano[["FactNanodrop"]] %>%
   mutate(across(conc_nano:nano_230, as.numeric)) %>%
   # connect correct mash tube to correct extraction ID
   left_join(
-    database_nano[["DimIndivid2Mash"]] %>%
+    database_nano[["DimSample"]] %>%
       distinct(ID_mash, Extraction_ID, order, genus_species),
     by = "Extraction_ID"
   ) %>%
@@ -72,16 +72,18 @@ nano_data %>%
 
 
 
+
 ## function to calculate dna-mix 
-calculate_dna_pooling_simple <- function(
+calculate_dna_pooling <- function(
     nano_data,
     species_to_include,
     fractions,
     final_volume,
-    species_col,
+    species_col = "taxonomic_group",
     conc_var,
-    dilutions = "dilution",
-    dna_col = "conc_nano"  # used to calculate final DNA concentration
+    dilutions,
+    dna_col = "conc_nano",
+    fixed_volumes = NULL
 ) {
   # Validate columns
   if (!species_col %in% names(nano_data)) stop("Column '", species_col, "' not found")
@@ -101,49 +103,66 @@ calculate_dna_pooling_simple <- function(
   if (abs(sum(fractions) - 1) > 0.01) {
     warning("Fractions should sum to 1, but currently sum to ", sum(fractions))
   }  
-  # Concentrations used for volume scaling
+  
+  # Concentrations
   concentrations <- data_subset[[conc_var]]
-  dilutions <- data_subset[[dilutions]]
   dna_conc <- data_subset[[dna_col]]
   
-  # undiluted concentration
-  undiluted_conc <- concentrations  # from conc_var
-  
-  # actual concentration in the diluted stock
   diluted_conc <- concentrations / dilutions
   diluted_dna <- dna_conc / dilutions
   
-  # calculate scaled volumes based on the diluted stock
-  scaled_volumes <- fractions / diluted_conc
-  volumes <- scaled_volumes / sum(scaled_volumes) * final_volume
+  # Identify which species have fixed volumes
+  is_fixed <- data_subset[[species_col]] %in% names(fixed_volumes)
   
-  #warning for volume too small to pipet
-  if (any(volumes < 0.5)) {
-    warning("Some calculated volumes are too small to pipet! Adjust dilutions of other components. \n",
-            paste(data_subset[[species_col]][volumes < 0.5], 
-                  "=", round(volumes[volumes < 0.5], 2), "µL", collapse = "; "))
+  # Calculate volumes
+  if (any(is_fixed)) {
+    # Set fixed volumes
+    volumes <- rep(NA, nrow(data_subset))
+    for (species_name in names(fixed_volumes)) {
+      idx <- which(data_subset[[species_col]] == species_name)
+      if (length(idx) > 0) {
+        volumes[idx] <- fixed_volumes[species_name]
+      }
+    }
+    
+    # Calculate remaining volume for non-fixed species
+    fixed_total <- sum(volumes[is_fixed], na.rm = TRUE)
+    remaining_volume <- final_volume - fixed_total
+    
+    if (remaining_volume <= 0) {
+      stop("Fixed volumes (", fixed_total, " µL) exceed final volume (", final_volume, " µL)")
+    }
+    
+    # Calculate non-fixed volumes to maintain their fractions
+    non_fixed_idx <- which(!is_fixed)
+    if (length(non_fixed_idx) > 0) {
+      scaled_volumes <- fractions[non_fixed_idx] / diluted_conc[non_fixed_idx]
+      volumes[non_fixed_idx] <- scaled_volumes / sum(scaled_volumes) * remaining_volume
+    }
+  } else {
+    # No fixed volumes - calculate normally
+    scaled_volumes <- fractions / diluted_conc
+    volumes <- scaled_volumes / sum(scaled_volumes) * final_volume
   }
   
-  # final concentration in the pool (still based on the DNA column)
-  final_dna_conc <- sum(volumes * diluted_dna) / final_volume
+  # Warning for volume too small to pipet
+  if (any(volumes < 0.5)) {
+    warning("Some calculated volumes are too small to pipet! Adjust dilutions of other components. \n")
+  }
   
-  # 
-  # # Calculate scaled volumes
-  # scaled_volumes <- fractions / (concentrations * dilutions)
-  # volumes <- scaled_volumes / sum(scaled_volumes) * final_volume 
-  # 
-  # # Calculate final DNA concentration in mix (always using DNA column)
-  # final_dna_conc <- sum(volumes * data_subset[[dna_col]]) / final_volume
-  # 
+  # calculate for results
+  final_dna_conc <- sum(volumes * diluted_dna) / final_volume
+  amounts_added <- volumes * diluted_conc
+  true_fractions <- amounts_added / sum(amounts_added)
+  
   # Output
   result <- data.frame(
     Extraction_ID = data_subset$Extraction_ID,
     species = data_subset[[species_col]],
-    fraction = fractions,
     volume_uL = round(volumes, 2),
-    dilution = dilutions #,
-    # diluted_conc = diluted_conc,
-    # undiluted_conc = undiluted_conc
+    dilution = dilutions,
+    target_fraction = fractions,
+    true_fraction = round(true_fractions, 3)
   )
   
   cat("\n=== How much uL to add ===\n")
@@ -156,7 +175,10 @@ calculate_dna_pooling_simple <- function(
     cat("To ratio for: unknown concentration variable:", conc_var, "\n")
   }
   
-  cat("Final volume:", final_volume, "µL\n")
+  if (!is.null(fixed_volumes)) {
+    cat("Fixed volumes:", paste(names(fixed_volumes), "=", fixed_volumes, "µL", collapse = ", "), "\n")
+  }
+  cat("Final volume of mix:", round(final_volume, 2), "µL\n")
   cat("Final DNA concentration in mix:", round(final_dna_conc, 2), "ng/µL\n\n")
   print(result, row.names = FALSE)
   
@@ -168,33 +190,37 @@ calculate_dna_pooling_simple <- function(
 }
 
 
+
 #use function
-calculate_dna_pooling_simple(
+
+
+# for mock_01
+calculate_dna_pooling(
   nano_data,
   # choose from: 
   # Hymenoptera, Diptera, Lepidoptera, Araneae, Conocephalus dorsalis, Leptophyes punctatissima, Stethophyma grossum or Locusta migratoria  
-  species_to_include = c("Hymenoptera", "Lepidoptera","Diptera","Conocephalus dorsalis", "Araneae"),
-  fractions = c(0.2,0.2,0.2,0.2,0.2),   # fraction in final pool
-  final_volume = 25, # end volume of this mix
-  species_col = "taxonomic_group",
-  conc_var = "conc_nano"  # choose dna (conc_nano)  or mass (conc_mass)
+  species_to_include = c(
+    "Hymenoptera", "Lepidoptera","Diptera","Conocephalus dorsalis","Araneae","Leptophyes punctatissima"),
+  fractions = c(rep(1/6,6)),   # target fraction in final pool
+  dilutions = c(1,1,1,1,1,1), # set dilution factor
+  fixed_volumes = c("Hymenoptera" = 10),  # fix volumes (overrides fraction)
+  final_volume = 50, # end volume of this mix
+  conc_var = "conc_mass"  # choose dna (conc_nano)  or mass (conc_mass)
 )
 
-# reset all dilutions
-nano_data <- nano_data %>%
-  mutate(
-    dilution = c(rep(1,8))
-  )
 
-# set dilutions
-nano_data <- nano_data %>%
-  mutate(
-    dilution    = c(1, # Hymenoptera
-                    10, # Diptera
-                    10, # Lepidoptera
-                    10, # Araneae
-                    10, # Conocephalus dorsalis
-                    1, # Leptophyes punctatissima
-                    1, # Stethophyma grossum
-                    1) # Locusta migratoria
-  )
+
+# for mock_02
+calculate_dna_pooling(
+  nano_data,
+  # choose from: 
+  # Hymenoptera, Diptera, Lepidoptera, Araneae, Conocephalus dorsalis, Leptophyes punctatissima, Stethophyma grossum or Locusta migratoria  
+  species_to_include = c(
+    "Lepidoptera","Conocephalus dorsalis"),
+  fractions = c(rep(1/2,2)),   # target fraction in final pool
+  dilutions = c(1,1), # set dilution factor
+  #fixed_volumes = c("Hymenoptera" = 10),  # fix volumes (overrides fraction)
+  final_volume = 5, # end volume of this mix
+  conc_var = "conc_mass"  # choose dna (conc_nano)  or mass (conc_mass)
+)
+
