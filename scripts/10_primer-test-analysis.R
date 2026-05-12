@@ -310,7 +310,7 @@ ggplot(rra_data_adapter, aes(Sample, n_reads, fill = read_adapter)) +
      mutate(ID_mix_primer = "Expected"),
    
    rra_data %>%
-     filter(ID_mix_PCR == "PT_03", order %in% c("Lepidoptera", "Orthoptera")) %>%
+     filter(ID_mix_PCR == "PT_03", order %in% c("Lepidoptera", "Orthoptera", NA)) %>%
      mutate(read_adapter = str_split_fixed(OTU, "_", 2)[,2]) %>%
      group_by(ID_mix_primer, order) %>%
      summarise(n_reads = sum(n_reads)) %>%
@@ -733,5 +733,36 @@ ggplot(rra_data_adapter, aes(Sample, n_reads, fill = read_adapter)) +
    ggplot(aes(x = ID_mix_primer, y = proportion, fill = species)) +
    geom_bar(stat = "identity", position = "stack") +
    labs(x = NULL, y = "proportion") + 
-   scale_x_discrete(labels = c("primer_1" = "Verkuil", "primer_2" = "Jusino", "primer_3" = "Leray", "primer_4" = "Leray - fungi", "primer_5" = "Leray - aves", "primer_6" = "Leray - fungi/aves" )) + ggtitle(c("Lepidoptera Orthoptera mix \nArthropoda species distribution")) +theme(legend.text = element_text(size = 10))
+   scale_x_discrete(labels = c("primer_1" = "Verkuil", "primer_2" = "Jusino", "primer_3" = "Leray", "primer_4" = "Leray - fungi", "primer_5" = "Leray - aves", "primer_6" = "Leray - fungi/aves" )) + ggtitle(c("Lepidoptera Orthoptera mix contamination \nArthropoda species distribution")) +theme(legend.text = element_text(size = 10))
+
+ 
+# contamination  % reads
+ 
+ rra_data %>%
+   filter(ID_mix_PCR == "PT_03") %>%
+   group_by(ID_mix_primer, species) %>%
+   summarise(sum_reads = sum(n_reads), .groups = "drop") %>%
+   mutate(is_contamination = !species %in% c("Deltote uncula", "Conocephalus dorsalis")) %>%
+   group_by(ID_mix_primer) %>%
+   mutate(
+     prop  = sum_reads / sum(sum_reads),
+     label = ifelse(is_contamination, paste0(round(prop * 100, 1), "%"), NA)
+   ) %>%    filter(prop > 0.005) %>%
+   ggplot(aes(x = ID_mix_primer, y = sum_reads, fill = is_contamination)) +
+   geom_col() +
+   geom_text(aes(label = label),
+             position = position_stack(vjust = 1.05),
+             na.rm = TRUE) +
+   labs(x = NULL, y = "Number of reads", fill = NULL) +
+   scale_fill_manual(values = c("TRUE" = "red", "FALSE" = "grey70"),
+                     labels = c("TRUE" = "contamination", "FALSE" = "target")) +
+   scale_x_discrete(labels = c(
+     "primer_1" = "Verkuil",
+     "primer_2" = "Jusino",
+     "primer_3" = "Leray",
+     "primer_4" = "Leray - fungi",
+     "primer_5" = "Leray - aves",
+     "primer_6" = "Leray - fungi/aves"
+   )) +
+   ggtitle("Lepidoptera Orthoptera mix contamination\ntotal reads and contamination reads")
  
