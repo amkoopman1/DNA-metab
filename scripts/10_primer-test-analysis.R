@@ -529,7 +529,6 @@ ggplot(rra_data_adapter, aes(Sample, n_reads, fill = read_adapter)) +
  rra_data %>%
    filter(ID_mix_PCR == "PT_02", phylum == "Arthropoda") %>%
    group_by(ID_mix_primer, species) %>%
-   summarise(n_reads = sum(n_reads), .groups = "drop") %>%
    filter(n_reads != 0, !is.na(species), species != "") %>%
    group_by(ID_mix_primer) %>%
    summarise(species_richness = n_distinct(species)) %>%
@@ -595,13 +594,14 @@ ggplot(rra_data_adapter, aes(Sample, n_reads, fill = read_adapter)) +
    ggtitle("Orthoptera Lepidoptera mix \nArthropoda species richness")
  
  # fecal sample
+ 
+ # fecal sample
  rra_data %>%
    filter(ID_mix_PCR == "PT_04", 
-          phylum == "Arthropoda",
-          !is.na(species)) %>%
-   group_by(ID_mix_primer, OTU) %>%
+          phylum == "Arthropoda") %>%
+   group_by(ID_mix_primer, species) %>%
    summarise(n_reads = sum(n_reads), .groups = "drop") %>%
-   pivot_wider(names_from = OTU, values_from = n_reads, values_fill = 0) %>%
+   pivot_wider(names_from = species, values_from = n_reads, values_fill = 0) %>%
    column_to_rownames("ID_mix_primer") %>%
    diversity(index = "shannon") %>%
    as.data.frame() %>%
@@ -618,7 +618,8 @@ ggplot(rra_data_adapter, aes(Sample, n_reads, fill = read_adapter)) +
      "primer_5" = "Leray - aves",
      "primer_6" = "Leray - fungi/aves"
    )) +
-   ggtitle("Fecal sample \nShannon diversity Arthropoda species")
+   ggtitle("Fecal sample \nShannon diversity species")
+ 
  
  rra_data %>%
    filter(ID_mix_PCR == "PT_04", phylum == "Arthropoda") %>%
@@ -720,49 +721,81 @@ ggplot(rra_data_adapter, aes(Sample, n_reads, fill = read_adapter)) +
    scale_x_discrete(labels = c("primer_1" = "Verkuil", "primer_2" = "Jusino", "primer_3" = "Leray", "primer_4" = "Leray - fungi", "primer_5" = "Leray - aves", "primer_6" = "Leray - fungi/aves" )) + ggtitle(c("Lepidoptera Orthoptera mix \nArthropoda species distribution")) +theme(legend.text = element_text(size = 10))
  
  
- # species distribution contamination PT_03
  
+ # find taxonomic names per sample per primer
+ 
+ # mock sample
  rra_data %>%
-   filter(ID_mix_PCR == "PT_03", phylum == "Arthropoda", !species %in% c("Deltote uncula", "Conocephalus dorsalis"), !is.na(species)) %>%
-   mutate(read_adapter = str_split_fixed(OTU, "_", 2)[,2]) %>%
-   group_by(ID_mix_primer, species) %>%
-   summarise(n_reads = sum(n_reads)) %>%
+        filter(ID_mix_PCR == "PT_02", 
+               phylum == "Arthropoda",
+               ID_mix_primer %in% c("primer_1", "primer_2", "primer_3", "primer_5"),
+               n_reads != 0) %>%
+        select(ID_mix_primer,species, genus, family, rra, n_reads) %>%
+        group_by(ID_mix_primer,species, genus, family) %>%
+        mutate(rra = round(sum(rra), 3)) %>%
+        ungroup() %>%
+        distinct() %>%
+        arrange(ID_mix_primer,species, genus, family) %>%
+        group_by(species, genus, family) %>%
+        mutate(n_primers = n_distinct(ID_mix_primer)) %>%
+        ungroup() %>%
+        arrange(ID_mix_primer, species, genus, family) %>%
+   group_by(ID_mix_primer, n_primers) %>%
+   summarise(n_reads = sum(n_reads), .groups = "drop") %>%
    filter(n_reads != 0) %>%
    group_by(ID_mix_primer) %>%
-   mutate(proportion = n_reads / sum(n_reads)) %>%
-   ggplot(aes(x = ID_mix_primer, y = proportion, fill = species)) +
+   mutate(
+     proportion = n_reads / sum(n_reads)) %>%
+   ggplot(aes(x = ID_mix_primer, y = proportion, fill = factor(n_primers))) +
    geom_bar(stat = "identity", position = "stack") +
-   labs(x = NULL, y = "proportion") + 
-   scale_x_discrete(labels = c("primer_1" = "Verkuil", "primer_2" = "Jusino", "primer_3" = "Leray", "primer_4" = "Leray - fungi", "primer_5" = "Leray - aves", "primer_6" = "Leray - fungi/aves" )) + ggtitle(c("Lepidoptera Orthoptera mix contamination \nArthropoda species distribution")) +theme(legend.text = element_text(size = 10))
+   labs(x = NULL, y = "Proportion", fill = "Occurs in n \nother samples") +
+   scale_fill_manual(values = cols6) +
+   scale_x_discrete(labels = c(
+     "primer_1"  = "Verkuil",
+     "primer_2"  = "Jusino",
+     "primer_3"  = "Leray",
+     "primer_4"  = "Leray - fungi",
+     "primer_5"  = "Leray - aves",
+     "primer_6"  = "Leray - fungi/aves"
+   )) +
+   ggtitle("Mock community taxonomic 'completeness'? \nArthropoda species-genus-family") 
 
  
-# contamination  % reads
+ # fecal sample
  
  rra_data %>%
-   filter(ID_mix_PCR == "PT_03") %>%
-   group_by(ID_mix_primer, species) %>%
-   summarise(sum_reads = sum(n_reads), .groups = "drop") %>%
-   mutate(is_contamination = !species %in% c("Deltote uncula", "Conocephalus dorsalis")) %>%
+   filter(ID_mix_PCR == "PT_04", 
+          phylum == "Arthropoda",
+          ID_mix_primer %in% c("primer_1", "primer_2", "primer_3", "primer_5"),
+          n_reads != 0) %>%
+   select(ID_mix_primer,species, genus, family, rra, n_reads) %>%
+   group_by(ID_mix_primer,species, genus, family) %>%
+   mutate(rra = round(sum(rra), 3)) %>%
+   ungroup() %>%
+   distinct() %>%
+   arrange(ID_mix_primer,species, genus, family) %>%
+   group_by(species, genus, family) %>%
+   mutate(n_primers = n_distinct(ID_mix_primer)) %>%
+   ungroup() %>%
+   arrange(ID_mix_primer, species, genus, family) %>%
+   group_by(ID_mix_primer, n_primers) %>%
+   summarise(n_reads = sum(n_reads), .groups = "drop") %>%
+   filter(n_reads != 0) %>%
    group_by(ID_mix_primer) %>%
    mutate(
-     prop  = sum_reads / sum(sum_reads),
-     label = ifelse(is_contamination, paste0(round(prop * 100, 1), "%"), NA)
-   ) %>%    filter(prop > 0.005) %>%
-   ggplot(aes(x = ID_mix_primer, y = sum_reads, fill = is_contamination)) +
-   geom_col() +
-   geom_text(aes(label = label),
-             position = position_stack(vjust = 1.05),
-             na.rm = TRUE) +
-   labs(x = NULL, y = "Number of reads", fill = NULL) +
-   scale_fill_manual(values = c("TRUE" = "red", "FALSE" = "grey70"),
-                     labels = c("TRUE" = "contamination", "FALSE" = "target")) +
+     proportion = n_reads / sum(n_reads)) %>%
+   ggplot(aes(x = ID_mix_primer, y = proportion, fill = factor(n_primers))) +
+   geom_bar(stat = "identity", position = "stack") +
+   labs(x = NULL, y = "Proportion", fill = "Occurs in \nother samples") +
+   scale_fill_manual(values = cols6) +
    scale_x_discrete(labels = c(
-     "primer_1" = "Verkuil",
-     "primer_2" = "Jusino",
-     "primer_3" = "Leray",
-     "primer_4" = "Leray - fungi",
-     "primer_5" = "Leray - aves",
-     "primer_6" = "Leray - fungi/aves"
+     "primer_1"  = "Verkuil",
+     "primer_2"  = "Jusino",
+     "primer_3"  = "Leray",
+     "primer_4"  = "Leray - fungi",
+     "primer_5"  = "Leray - aves",
+     "primer_6"  = "Leray - fungi/aves"
    )) +
-   ggtitle("Lepidoptera Orthoptera mix contamination\ntotal reads and contamination reads")
+   ggtitle("Fecal sample taxonomic 'completeness'? \nArthropoda species-genus-family") 
+ 
  
