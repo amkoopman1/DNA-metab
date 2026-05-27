@@ -726,64 +726,21 @@ ggplot(rra_data_adapter, aes(Sample, n_reads, fill = read_adapter)) +
  
  # mock sample
  rra_data %>%
-        filter(ID_mix_PCR == "PT_02", 
-               phylum == "Arthropoda",
-               ID_mix_primer %in% c("primer_1", "primer_2", "primer_3", "primer_5"),
-               n_reads != 0) %>%
-        select(ID_mix_primer,species, genus, family, rra, n_reads) %>%
-        group_by(ID_mix_primer,species, genus, family) %>%
-        mutate(rra = round(sum(rra), 3)) %>%
-        ungroup() %>%
-        distinct() %>%
-        arrange(ID_mix_primer,species, genus, family) %>%
-        group_by(species, genus, family) %>%
-        mutate(n_primers = n_distinct(ID_mix_primer)) %>%
-        ungroup() %>%
-        arrange(ID_mix_primer, species, genus, family) %>%
-   group_by(ID_mix_primer, n_primers) %>%
-   summarise(n_reads = sum(n_reads), .groups = "drop") %>%
-   filter(n_reads != 0) %>%
-   group_by(ID_mix_primer) %>%
-   mutate(
-     proportion = n_reads / sum(n_reads)) %>%
-   ggplot(aes(x = ID_mix_primer, y = proportion, fill = factor(n_primers))) +
-   geom_bar(stat = "identity", position = "stack") +
-   labs(x = NULL, y = "Proportion", fill = "Occurs in n \nother samples") +
-   scale_fill_manual(values = cols6) +
-   scale_x_discrete(labels = c(
-     "primer_1"  = "Verkuil",
-     "primer_2"  = "Jusino",
-     "primer_3"  = "Leray",
-     "primer_4"  = "Leray - fungi",
-     "primer_5"  = "Leray - aves",
-     "primer_6"  = "Leray - fungi/aves"
-   )) +
-   ggtitle("Mock community taxonomic 'completeness'? \nArthropoda species-genus-family") 
-
- 
- # fecal sample
- 
- rra_data %>%
-   filter(ID_mix_PCR == "PT_04", 
+   filter(ID_mix_PCR == "PT_02", 
           phylum == "Arthropoda",
           ID_mix_primer %in% c("primer_1", "primer_2", "primer_3", "primer_5"),
           n_reads != 0) %>%
-   select(ID_mix_primer,species, genus, family, rra, n_reads) %>%
-   group_by(ID_mix_primer,species, genus, family) %>%
-   mutate(rra = round(sum(rra), 3)) %>%
-   ungroup() %>%
-   distinct() %>%
-   arrange(ID_mix_primer,species, genus, family) %>%
-   group_by(species, genus, family) %>%
-   mutate(n_primers = n_distinct(ID_mix_primer)) %>%
-   ungroup() %>%
-   arrange(ID_mix_primer, species, genus, family) %>%
-   group_by(ID_mix_primer, n_primers) %>%
-   summarise(n_reads = sum(n_reads), .groups = "drop") %>%
-   filter(n_reads != 0) %>%
+   select(ID_mix_primer,species, genus, family, order, class, n_reads) %>%
    group_by(ID_mix_primer) %>%
    mutate(
      proportion = n_reads / sum(n_reads)) %>%
+   ungroup() %>%
+   group_by(species, genus, family, order) %>%
+   mutate(n_primers = n_distinct(ID_mix_primer)) %>%
+   ungroup() %>%
+   distinct() %>%
+   filter(proportion >= 0.01) %>%
+   arrange(ID_mix_primer,species, genus, family) %>%
    ggplot(aes(x = ID_mix_primer, y = proportion, fill = factor(n_primers))) +
    geom_bar(stat = "identity", position = "stack") +
    labs(x = NULL, y = "Proportion", fill = "Occurs in \nother samples") +
@@ -795,7 +752,38 @@ ggplot(rra_data_adapter, aes(Sample, n_reads, fill = read_adapter)) +
      "primer_4"  = "Leray - fungi",
      "primer_5"  = "Leray - aves",
      "primer_6"  = "Leray - fungi/aves"
-   )) +
-   ggtitle("Fecal sample taxonomic 'completeness'? \nArthropoda species-genus-family") 
+   )) + ylim(0,1)+
+   ggtitle("Mock community taxonomic 'completeness'? \nspecies-genus-family-order \n >0.01 of Arthropoda in sample") 
+ 
+ # fecal sample
+ rra_data %>%
+   filter(ID_mix_PCR == "PT_04", 
+          phylum == "Arthropoda",
+          ID_mix_primer %in% c("primer_1", "primer_2", "primer_3", "primer_5"),
+          n_reads != 0) %>%
+   select(ID_mix_primer,species, genus, family, order, class, n_reads) %>%
+   group_by(ID_mix_primer) %>%
+   mutate(
+     proportion = n_reads / sum(n_reads)) %>%
+   ungroup() %>%
+   group_by(species, genus, family, order) %>%
+   mutate(n_primers = n_distinct(ID_mix_primer)) %>%
+   ungroup() %>%
+   distinct() %>%
+   filter(proportion >= 0.01) %>%
+   arrange(ID_mix_primer,species, genus, family) %>%
+   ggplot(aes(x = ID_mix_primer, y = proportion, fill = factor(n_primers))) +
+   geom_bar(stat = "identity", position = "stack") +
+   labs(x = NULL, y = "Proportion", fill = "Occurs in \nother samples") +
+   scale_fill_manual(values = cols6) +
+   scale_x_discrete(labels = c(
+     "primer_1"  = "Verkuil",
+     "primer_2"  = "Jusino",
+     "primer_3"  = "Leray",
+     "primer_4"  = "Leray - fungi",
+     "primer_5"  = "Leray - aves",
+     "primer_6"  = "Leray - fungi/aves"
+   )) + ylim(0,1)+
+   ggtitle("Fecal sample taxonomic 'completeness'? \nspecies-genus-family-order \n >0.01 of Arthropoda in sample") 
  
  
