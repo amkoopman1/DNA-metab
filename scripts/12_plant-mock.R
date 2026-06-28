@@ -17,8 +17,8 @@ names(database_plant)
 total_df_plant <- database_plant[["MetaSample"]] %>%
   left_join(database_plant[["DimInvertebrates"]], by = "Sample_ID") %>%
   select(c("Plant_species","Feeding_guild","Plant_part","Expected_diet_DNA", "Species","MixInd_ID","Plant_specificity","Sample_ID")) %>%
-  inner_join(database_plant[["FactMix"]], by = c("MixInd_ID","Species", "Sample_ID")) %>%
-  select(c("Plant_species","Feeding_guild","Plant_part","Expected_diet_DNA", "Species","MixInd_ID","Plant_specificity","Sample_ID", "PlantMix_ID","MixInd_ID","n")) %>%
+  inner_join(database_plant[["FactMix"]], by = c("Species", "Sample_ID")) %>%
+  select(c("Plant_species","Feeding_guild","Plant_part","Expected_diet_DNA", "Species","Plant_specificity","Sample_ID", "PlantMix_ID","n")) %>%
   distinct()
 
 
@@ -150,22 +150,25 @@ total_df_plant %>%
 
 # write to sheet
 
-# total_df_plant %>% 
+# total_df_plant %>%
 #   select(PlantMix_ID, Sample_ID, Species, n,MixInd_ID) %>%
 #   arrange(PlantMix_ID,Sample_ID) %>%
 #   sheet_write(ss = database_link_plant,
-#               sheet = paste0("FactMix"))
+#               sheet = paste0("FactMixR"))
 
 
 
-database_plant[["FactMix"]] %>%
+database_plant[["printMix"]] %>%
   filter("yes" == mash)%>%
-  select(PlantMix_ID, Species) %>%
+  filter(PlantMix_ID %in% c("low_mix", "mid_mix", "high_mix","guild_mix", "phag_mix")) %>%
+  select(Species) %>%
   arrange(Species) %>%
   distinct()
 
-View(database_plant[["FactMix"]] %>%
-       filter("yes" == mash)%>%
-       select(PlantMix_ID, Species) %>%
+View(database_plant[["printMix"]] %>%
+       filter("no" == mash)%>%
+       filter(PlantMix_ID %in% c("low_mix", "mid_mix", "high_mix","guild_mix", "phag_mix")) %>%
+       select(Species, Sample_ID) %>%
        arrange(Species) %>%
        distinct())
+
